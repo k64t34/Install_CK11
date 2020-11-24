@@ -24,41 +24,24 @@ namespace Install_CK11
         static string Service_User="Svc-ck11cl-oduyu";
         static string Service_domain="oduyu";
         static string Hostname;
+        static string LocalAdministratorsGroup = null;
+        static ulong minPhysicalMemory =6144;
         static void Main(string[] args)
         {
             Console.BackgroundColor = ConsoleColor.Black; Console.Clear();          
 
             const char hr_char = '─';
-            const byte hr_count = 60;
+            int hr_count = Console.WindowWidth-1;            
             string title = "Автоматизированная установка клиента ОИК СК-11";
-            
-            /*title = "Ну удалось определить встроенную группа локаьных администраторов\nIdentityNotMappedException\nSystem.Security.Principal.IdentityNotMappedException: Некоторые или ссылки на свойства нельзя преобразовать.\n   в System.Security.Principal.SecurityIdentifier.Translate(IdentityReferenceCollection sourceSids, Type targetType, Boolean forceSuccess)\n   в System.Security.Principal.SecurityIdentifier.Translate(Type targetType)\n   в Install_CK11.Program.GetLocalAdminGroup(String & group) в Program.cs:строка 186";
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.DarkRed;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.DarkMagenta;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine(title);*/
-
-
             Console.ForegroundColor = ConsoleColor.Cyan;            
             Console.WriteLine(new string(hr_char, hr_count));
             Console.WriteLine(title);
             Console.WriteLine(new string(hr_char, hr_count));
+#if DEBUG
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine("Debug mode");
+#endif
             Console.ForegroundColor = ConsoleColor.White;
-
             System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
             Version version = assembly.GetName().Version;
             title += " ver " + (FileVersionInfo.GetVersionInfo((Assembly.GetExecutingAssembly()).Location)).ProductVersion + ": ";
@@ -70,21 +53,20 @@ namespace Install_CK11
             Hostname = Environment.MachineName;
             //TODO:Проверка что ПК в домене 
             //Console.Write("Компьютер {0} в домене {1}...", Hostname,Service_domain);
-            #region Check Distrib Folder
+#region Check OS            
+            Console.WriteLine(GetOSFriendlyName());
+#endregion
+#region Check Distrib Folder
             Console.Write("Проверка папки дистрибутивов {0} ...", Distrib_Folder);
-            if (!Directory.Exists(Distrib_Folder))
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("СБОЙ");
-                ScriptFinish(true);
-            }
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(" OK");
-            Console.ForegroundColor = ConsoleColor.White;
-            #endregion
-            #region Add Service User
-            #region Get name of builtin admin group
-            string LocalAdministratorsGroup=null;
+#if !DEBUG
+            if (!Directory.Exists(Distrib_Folder)){Console.ForegroundColor = ConsoleColor.Red;Console.WriteLine("СБОЙ");ScriptFinish(true);}
+#endif
+            PrintOK();
+            
+#endregion
+#region Add Service User
+#region Get name of builtin admin group
+            
             if (!WMIGetLocalAdminGroup(ref LocalAdministratorsGroup))
             {
                 Console.ForegroundColor = ConsoleColor.DarkRed;
@@ -94,92 +76,50 @@ namespace Install_CK11
                 ScriptFinish(true);
             }            
 #if DEBUG
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Local Administrators grouop is {0}", LocalAdministratorsGroup);
-            Console.ResetColor();
+            Console.ForegroundColor = ConsoleColor.Gray;Console.WriteLine("Local Administrators grouop is {0}", LocalAdministratorsGroup);Console.ResetColor();
 #endif
+#endregion
+#region Check service user in builtin admin group
+            if (IsUserInLocalGrooup(ref Service_User, ref LocalAdministratorsGroup, Service_domain))
+            {
+                Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("Сервисный пользователь {0}\\{1} уже есть в локальной группе {2}",
+                    Service_domain, Service_User, LocalAdministratorsGroup);
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.White; Console.Write("Добавление сервисного пользователя {0}\\{1} в локальную группу {2} ...", Service_domain.ToUpper(), Service_User.ToUpper(), LocalAdministratorsGroup);
+                if (AddUserToLocalGrooup(ref Service_User, ref LocalAdministratorsGroup, ref Service_domain))                   PrintOK();
+                else
+                {
+                    PrintFail();
+                    #if !DEBUG
+                    ScriptFinish(true);
+#endif
+                }
+            }            
             #endregion
-            #region Check service user in builtin admin group
-            
-            /* work ok
-            using (DirectoryEntry d = new DirectoryEntry("WinNT://" + Hostname + ",computer")) //https://www.script-coding.com/ADSI.html
+            #endregion
+            #region Set pagefile
+            Console.ResetColor(); Console.WriteLine(new string(hr_char, hr_count));
+            ulong PhysicalMemory = GetPhysicalMemory();
+            Console.Write("В компьютере установлено памяти {0} Мб ", PhysicalMemory);
+            if (minPhysicalMemory <= PhysicalMemory) PrintOK();
+            else
             {
-                using (DirectoryEntry g = d.Children.Find("Администраторы", "group"))
-                {
-                    object members = g.Invoke("Members", null);
-                    foreach (object member in (IEnumerable)members)
-                    {
-                        DirectoryEntry x = new DirectoryEntry(member);                        
-                        Console.Out.WriteLine(x.Path,x.Name);
-                    }
-                }
+                PrintWarn(String.Format("Не соответствует требованиям в {0} Мб !", minPhysicalMemory));
+                Console.ResetColor(); Console.WriteLine("Продолжать установку? (Y/N) Да");
+                PhysicalMemory = minPhysicalMemory;
             }
-            */
-            try
+            ulong PageFileMaximumSize = (ulong) 1.5 * PhysicalMemory;
+            ulong PageFileInitialSize = PageFileMaximumSize;
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PageFileSetting");
+            foreach (ManagementObject obj in searcher.Get())
             {
-#if DEBUG
-                Console.ForegroundColor = ConsoleColor.Gray;
-                Console.WriteLine("Group {0} contain:", LocalAdministratorsGroup);
-#endif
-                StringBuilder sBuilder = new StringBuilder("GroupComponent=");
-                sBuilder.Append('"');
-                sBuilder.Append("Win32_Group.Domain=");
-                sBuilder.Append("'");
-                sBuilder.Append(Hostname);
-                sBuilder.Append("'");
-                sBuilder.Append(",Name=");
-                sBuilder.Append("'");
-                sBuilder.Append(LocalAdministratorsGroup);
-                sBuilder.Append("'");
-                sBuilder.Append('"');
-                String[] properties =            {"PartComponent"};
-                SelectQuery sQuery = new SelectQuery("Win32_GroupUser", sBuilder.ToString(), properties);
-                #endregion
-                ManagementObjectSearcher Searcher = new ManagementObjectSearcher(sQuery);
-                //ManagementObjectSearcher searcher = new ManagementObjectSearcher(__root_CIMv2,
-                 //"SELECT * FROM Win32_GroupUser WHERE Win32_Group.Domain = 'SKORIK10', Name = 'Администраторы'");
-                //"SELECT PartComponent  FROM Win32_GroupUser WHERE GroupComponent=\"Win32_Group.Domain = 'SKORIK10', Name = 'Администраторы'\"");
-                // проверенный SELECT PartComponent  FROM Win32_GroupUser WHERE GroupComponent="Win32_Group.Domain='SKORIK10',Name='Администраторы'"                
-                ManagementObjectCollection Collection = Searcher.Get();
-                foreach (ManagementObject Obj in Collection)
-                {
+                Console.WriteLine("{0}\t{1}\t{2}",obj["Name"].ToString(), obj["InitialSize"], obj["MaximumSize"]);
 
-                    ManagementPath path = new ManagementPath(Obj["PartComponent"].ToString());                    
-                    if (path.ClassName == "Win32_UserAccount")
-                    {
-                        //Console.WriteLine(path.ToString());
-                        //Console.WriteLine(path.RelativePath);
-                        String[] fields = path.RelativePath.Split(',');
-                        //Console.WriteLine("{0} === {1}",fields[0], fields[1]);
-                        String domain=fields[0].Substring(fields[0].IndexOf("=") + 1).Replace('"', ' ').Trim();
-                        String user =fields[1].Substring(fields[1].IndexOf("=") + 1).Replace('"', ' ').Trim();
-#if DEBUG
-                        Console.WriteLine("{0}\\{1}", domain, user);
-#endif
-                    
-                    if (String.Compare(Service_domain, domain, true)==0) if (String.Compare(Service_User, user, true) == 0)
-                            {
-                        break; }
-                    }
-                }
+                //break;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-#if DEBUG
-            Console.ResetColor();
-#endif
-
-
-            ScriptFinish(true);
-            #endregion       
-
-
-#if DEBUG
-#endif
-
-            
+            #endregion
             ScriptFinish(true);
         }
 
@@ -189,20 +129,17 @@ namespace Install_CK11
         //****************************************************			
             if (pause)
             {
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine();
-                Console.Write("Press any key to exit . . . "); Console.ResetColor();
-                DateTime timeoutvalue = DateTime.Now.AddSeconds(10);
+                Console.ForegroundColor = ConsoleColor.White;Console.WriteLine();Console.Write("Press any key to exit . . . "); Console.ResetColor();
+                DateTime timeoutvalue = DateTime.Now.AddSeconds(100);
                 while (DateTime.Now < timeoutvalue)
                 {
                     if (Console.KeyAvailable) break;
                     Thread.Sleep(100);
-                }
-                
+                }                
             }
             Environment.Exit(1);
         }
-        #region GetLocalAdminGroup ver 1
+#region GetLocalAdminGroup ver 1
         //*******************************************
         static public bool WMIGetLocalAdminGroup(ref string group)
         //*******************************************
@@ -229,8 +166,8 @@ namespace Install_CK11
             }
             return (GetLocalAdminGroup);
         }
-        #endregion
-        #region GetLocalAdminGroup ver 2
+#endregion
+#region GetLocalAdminGroup ver 2
         static public bool GetLocalAdminGroup2(ref string group) 
         {
             bool GetLocalAdminGroup = false;
@@ -249,8 +186,8 @@ namespace Install_CK11
             
             return (GetLocalAdminGroup);
         }
-        #endregion
-        #region GetLocalAdminGroup ver 3
+#endregion
+#region GetLocalAdminGroup ver 3
         static public bool GetLocalAdminGroup3(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -266,6 +203,153 @@ namespace Install_CK11
             catch (Exception e) { __Error = "GetLocalAdminGroup()"+e.ToString(); }
             return (GetLocalAdminGroup);
         }
-        #endregion
+#endregion
+        //****************************************************
+        static public bool IsUserInLocalGrooup(ref String User, ref String Group, String Domain) {
+        //****************************************************
+            /* work ok
+                using (DirectoryEntry d = new DirectoryEntry("WinNT://" + Hostname + ",computer")) //https://www.script-coding.com/ADSI.html
+                {
+                    using (DirectoryEntry g = d.Children.Find("Администраторы", "group"))
+                    {
+                        object members = g.Invoke("Members", null);
+                        foreach (object member in (IEnumerable)members)
+                        {
+                            DirectoryEntry x = new DirectoryEntry(member);                        
+                            Console.Out.WriteLine(x.Path,x.Name);
+                        }
+                    }
+                }
+                */
+            bool IsDomainUserInLocalGrooup = false;
+#if DEBUG
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine("Group {0} contain:", LocalAdministratorsGroup);
+#endif
+            try
+            {
+                StringBuilder sBuilder = new StringBuilder("GroupComponent=");
+                sBuilder.Append('"');
+                sBuilder.Append("Win32_Group.Domain=");
+                sBuilder.Append("'");
+                sBuilder.Append(Hostname);
+                sBuilder.Append("'");
+                sBuilder.Append(",Name=");
+                sBuilder.Append("'");
+                sBuilder.Append(LocalAdministratorsGroup);
+                sBuilder.Append("'");
+                sBuilder.Append('"');
+                String[] properties = { "PartComponent" };
+                SelectQuery sQuery = new SelectQuery("Win32_GroupUser", sBuilder.ToString(), properties);                
+                ManagementObjectSearcher Searcher = new ManagementObjectSearcher(sQuery);
+                //ManagementObjectSearcher searcher = new ManagementObjectSearcher(__root_CIMv2,
+                //"SELECT * FROM Win32_GroupUser WHERE Win32_Group.Domain = 'SKORIK10', Name = 'Администраторы'");
+                //"SELECT PartComponent  FROM Win32_GroupUser WHERE GroupComponent=\"Win32_Group.Domain = 'SKORIK10', Name = 'Администраторы'\"");
+                // проверенный SELECT PartComponent  FROM Win32_GroupUser WHERE GroupComponent="Win32_Group.Domain='SKORIK10',Name='Администраторы'"                
+                ManagementObjectCollection Collection = Searcher.Get();
+                foreach (ManagementObject Obj in Collection)
+                {
+
+                    ManagementPath path = new ManagementPath(Obj["PartComponent"].ToString());
+                    if (path.ClassName == "Win32_UserAccount")
+                    {
+                        //Console.WriteLine(path.ToString());
+                        //Console.WriteLine(path.RelativePath);
+                        String[] fields = path.RelativePath.Split(',');
+                        //Console.WriteLine("{0} === {1}",fields[0], fields[1]);
+                        String domain = fields[0].Substring(fields[0].IndexOf("=") + 1).Replace('"', ' ').Trim();
+                        String user = fields[1].Substring(fields[1].IndexOf("=") + 1).Replace('"', ' ').Trim();
+#if DEBUG
+                        Console.WriteLine("{0}\\{1}", domain, user);
+#endif
+
+                        if (String.Compare(Service_domain, domain, true) == 0) if (String.Compare(Service_User, user, true) == 0)
+                            {
+                                break;
+                            }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+
+            return (IsDomainUserInLocalGrooup);
+        }
+        static public bool AddUserToLocalGrooup(ref string User, ref string Group, ref string domain)
+        {
+        bool AddUserToLocalGrooup = false;
+        return AddUserToLocalGrooup;
     }
-}
+        public static string GetOSFriendlyName()
+        {
+        //COMPUTER : AK47
+        //CLASS: ROOT\CIMV2: Win32_OperatingSystem
+        //QUERY    : SELECT* FROM Win32_OperatingSystem
+        //Caption: Майкрософт Windows 10 Корпоративная LTSC
+        //CSName: AK47
+        //OSArchitecture: 64-разрядная
+        //OSLanguage: 1049
+        //SystemDirectory: C:\Windows\system32
+        //SystemDrive: C:
+        //TotalSwapSpaceSize:
+        //TotalVirtualMemorySize: 22208168
+        //TotalVisibleMemorySize: 16703144
+        //Version: 10.0.17763
+        //WindowsDirectory: C:\Windows
+            //
+            string result = string.Empty;
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
+            foreach (ManagementObject os in searcher.Get())
+            {
+                result = os["Caption"].ToString();
+                break;
+            }
+            return result;
+        }
+        static public ulong GetPhysicalMemory()
+        {
+            ulong GetPhysicalMemory = 0;            
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Capacity  FROM Win32_PhysicalMemory");
+            foreach (ManagementObject obj in searcher.Get())
+                //Console.WriteLine(obj["Capacity"].ToString());
+                GetPhysicalMemory += Convert.ToUInt64(obj["Capacity"].ToString())>>20 ;            
+            return GetPhysicalMemory;
+        }
+        static void PrintOK() {Console.BackgroundColor = ConsoleColor.Green;Console.WriteLine(" OK ");Console.ResetColor();}
+        static void PrintFail() { Console.BackgroundColor = ConsoleColor.Red; Console.WriteLine(" СБОЙ "); Console.ResetColor(); }
+        static void PrintWarn(string Msg) { Console.BackgroundColor = ConsoleColor.Yellow; Console.ForegroundColor = ConsoleColor.Black;Console.WriteLine(Msg); Console.ResetColor(); }
+
+
+
+    }
+    }
+
+
+
+
+
+
+
+
+
+/*title = "Ну удалось определить встроенную группа локаьных администраторов\nIdentityNotMappedException\nSystem.Security.Principal.IdentityNotMappedException: Некоторые или ссылки на свойства нельзя преобразовать.\n   в System.Security.Principal.SecurityIdentifier.Translate(IdentityReferenceCollection sourceSids, Type targetType, Boolean forceSuccess)\n   в System.Security.Principal.SecurityIdentifier.Translate(Type targetType)\n   в Install_CK11.Program.GetLocalAdminGroup(String & group) в Program.cs:строка 186";
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.DarkRed;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.DarkMagenta;
+            Console.WriteLine(title);
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine(title);*/
