@@ -1,0 +1,7 @@
+*.bak
+/Install_CK11/obj/*
+/Install_CK11/bin/*
+/Install_CK11/.vs/*
+Thumbs.db
+
+
