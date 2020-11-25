@@ -13,6 +13,11 @@ using System.Collections;
 using System.Management;
 using System.Windows;
 using System.Security.Principal;
+using System.DirectoryServices.ActiveDirectory;
+using System.DirectoryServices.AccountManagement;
+using System.Data;
+using System.Configuration;
+
 
 namespace Install_CK11
 {
@@ -88,13 +93,11 @@ namespace Install_CK11
             else
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.Write("Добавление сервисного пользователя {0}\\{1} в локальную группу {2} ...", Service_domain.ToUpper(), Service_User.ToUpper(), LocalAdministratorsGroup);
-                if (AddUserToLocalGrooup(ref Service_User, ref LocalAdministratorsGroup, ref Service_domain))                   PrintOK();
-                else
-                {
-                    PrintFail();
-                    #if !DEBUG
-                    ScriptFinish(true);
-#endif
+                //if (AddUserToLocalGrooup(ref Service_User, ref LocalAdministratorsGroup, ref Service_domain)) 
+                if (AddUserToGroup(Service_domain+ "\\"+Service_User, LocalAdministratorsGroup))
+                    PrintOK();
+                else { PrintFail();
+                    Console.WriteLine("{0}", __Error);
                 }
             }            
             #endregion
@@ -265,6 +268,7 @@ namespace Install_CK11
 
                         if (String.Compare(Service_domain, domain, true) == 0) if (String.Compare(Service_User, user, true) == 0)
                             {
+                                IsDomainUserInLocalGrooup = true;
                                 break;
                             }
                     }
@@ -280,8 +284,22 @@ namespace Install_CK11
         static public bool AddUserToLocalGrooup(ref string User, ref string Group, ref string domain)
         {
         bool AddUserToLocalGrooup = false;
-        return AddUserToLocalGrooup;
-    }
+            try
+            {
+                DirectoryEntry groupEntry = new DirectoryEntry("WinNT://"+Hostname+"/" + Group + ",group");
+                DirectoryEntry userEntry  = new DirectoryEntry("WinNT://" + domain + "/" + User + ",user");
+                groupEntry.Children.Add(userEntry.Path.ToString(), "user");
+                //groupEntry.Invoke("Add", "WinNT://"+domain + "/" + User, "user");
+                //groupEntry.CommitChanges();
+                AddUserToLocalGrooup =IsUserInLocalGrooup(ref User, ref Group, domain);
+            }            
+            catch (Exception ex)
+            {
+                __Error=ex.ToString();
+            }
+            return AddUserToLocalGrooup;
+        }        
+    
         public static string GetOSFriendlyName()
         {
         //COMPUTER : AK47
@@ -322,9 +340,115 @@ namespace Install_CK11
         static void PrintWarn(string Msg) { Console.BackgroundColor = ConsoleColor.Yellow; Console.ForegroundColor = ConsoleColor.Black;Console.WriteLine(Msg); Console.ResetColor(); }
 
 
+        //*******************************************************************************************
+        //string ou = "OU=Collections,DC=Domain,DC=local";
+        //PrincipalContext ctx = new PrincipalContext(ContextType.Domain, "Domain.Local", ou);
+        //static public bool AddUserToGroup(PrincipalContext ctx, DirectoryEntry userId, string groupName)
+        //{
+        //    try
+        //    {
+        //        GroupPrincipal groupPrincipal = GroupPrincipal.FindByIdentity(ctx, groupName);
+        //        if (groupPrincipal != null)
+        //        {
+        //            DirectoryEntry entry = (DirectoryEntry)groupPrincipal.GetUnderlyingObject();
+        //            entry.Invoke("Add", new object[] { userId.Path.ToString() });
+        //            userId.CommitChanges();
+        //       }
+        //        else
+        //        {
+         //           return true;
+        //        }
+        //
+        //        return true;
+        //    }
+        //    catch
+        //    {
+        //        return false;
+        //    }
+        //}
+
+
+
+
+        #region Principal Function
+        //https://wiki.plecko.hr/doku.php?id=windows:ad:ad.net
+        //private string sDomain = "test.com";
+        //private string sDefaultOU = "OU=Test Users,OU=Test,DC=test,DC=com";
+        //private string sDefaultRootOU = "DC=test,DC=com";
+        //private string sServiceUser = @"ServiceUser";
+        //private string sServicePassword = "ServicePassword";
+        static public bool AddUserToGroup(string sUserName, string sGroupName)
+        {
+            bool AddUserToGroup = false;
+            try
+            {
+                UserPrincipal oUserPrincipal = GetUser(sUserName);
+                if (oUserPrincipal == null) __Error = String.Format("User {0} not found", sUserName);
+                else
+                {
+
+                    PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain);//, Hostname);
+                    GroupPrincipal oGroupPrincipal = GroupPrincipal.FindByIdentity(oPrincipalContext, sGroupName);
+
+                    
+
+
+                    if (oGroupPrincipal == null) __Error = String.Format("Group {0} not found", sGroupName);
+                    else
+                    {                                                
+                        if (!IsUserGroupMember(sUserName, sGroupName))
+                        {
+                            oGroupPrincipal.Members.Add(oUserPrincipal);
+                            oGroupPrincipal.Save();
+                            AddUserToGroup = true;
+                        }                        
+                    }
+                }                
+            }
+            catch (Exception ex)
+            {
+                __Error = ex.ToString();
+            }
+            return AddUserToGroup;
+        }
+        static public bool IsUserGroupMember(string sUserName, string sGroupName)
+        {
+            UserPrincipal oUserPrincipal = GetUser(sUserName);
+            GroupPrincipal oGroupPrincipal = GetGroup(sGroupName);
+
+            if (oUserPrincipal != null && oGroupPrincipal != null)
+            {
+                return oGroupPrincipal.Members.Contains(oUserPrincipal);
+            }
+            else
+            {
+                return false;
+            }
+        }
+        static public GroupPrincipal GetGroup(string sGroupName)
+        {
+            PrincipalContext oPrincipalContext = GetPrincipalContext();
+
+            GroupPrincipal oGroupPrincipal = GroupPrincipal.FindByIdentity(oPrincipalContext, sGroupName);
+            return oGroupPrincipal;
+        }
+        static public UserPrincipal GetUser(string sUserName)
+        {
+            PrincipalContext oPrincipalContext = GetPrincipalContext();
+
+            UserPrincipal oUserPrincipal = UserPrincipal.FindByIdentity(oPrincipalContext, sUserName);
+            return oUserPrincipal;
+        }
+        static public PrincipalContext GetPrincipalContext()
+        {
+            //PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain, sDomain, sDefaultOU, ContextOptions.SimpleBind, sServiceUser, sServicePassword);
+            PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain, Service_domain);
+            return oPrincipalContext;
+        }
+        #endregion 
 
     }
-    }
+}
 
 
 
@@ -353,3 +477,12 @@ namespace Install_CK11
             Console.WriteLine(title);
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine(title);*/
+
+
+
+/*
+ Справочные данный
+WinNT ADsPath   https://docs.microsoft.com/en-us/windows/win32/adsi/winnt-adspath 
+ 
+ 
+ */
