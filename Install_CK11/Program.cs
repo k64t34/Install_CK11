@@ -25,8 +25,8 @@ namespace Install_CK11
     class Program
     {
         public static string __Error;
-        const string __root_CIMv2 = "root\\CIMV2";
-        static string Distrib_Folder = "\\\\fs2-oduyu\\CK2007\\СК-11\\";
+        const string __root_CIMv2 = @"root\CIMV2";
+        static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
         static string Service_User = "Svc-ck11cl-oduyu";
         static string Service_domain = "oduyu";
         static string Hostname;
@@ -62,8 +62,13 @@ namespace Install_CK11
             Console.Write("Имя компьютера {0} ", Hostname);
             try //TODO:Проверка что ПК в домене 
             {
-                System.DirectoryServices.ActiveDirectory.Domain domain = System.DirectoryServices.ActiveDirectory.Domain.GetComputerDomain();
+                System.DirectoryServices.ActiveDirectory.Domain cdomain = System.DirectoryServices.ActiveDirectory.Domain.GetComputerDomain();
+                Service_domain = cdomain.Name.ToUpper();
                 Console.Write("Компьютер {0} в домене {1}...", Hostname, Service_domain);PrintOK();
+                if (Service_domain.Contains(".")) 
+                {
+                    Service_domain = Service_domain.Substring(0, Service_domain.IndexOf('.'));
+                }                
             }
             catch
             {
@@ -114,8 +119,8 @@ namespace Install_CK11
             else
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.Write("Добавление сервисного пользователя {0}\\{1} в локальную группу {2} ...", Service_domain.ToUpper(), Service_User.ToUpper(), LocalAdministratorsGroup);
-                //if (AddUserToLocalGrooup(ref Service_User, ref LocalAdministratorsGroup, ref Service_domain)) 
-                if (AddUserToGroup(Service_domain + "\\" + Service_User, LocalAdministratorsGroup))
+                if (AddUserToLocalGrooup(Service_User,  LocalAdministratorsGroup,  Service_domain))                 
+                //if (AddUserToGroup(Service_domain + "\\" + Service_User, LocalAdministratorsGroup))
                     PrintOK();
                 else
                 {
@@ -355,14 +360,19 @@ namespace Install_CK11
 
             return (IsDomainUserInLocalGrooup);
         }
-        static public bool AddUserToLocalGrooup(ref string User, ref string Group, ref string domain)
+        static public bool AddUserToLocalGrooup(string User, string Group, string domain)
         {
             bool AddUserToLocalGrooup = false;
             try
             {
-                DirectoryEntry groupEntry = new DirectoryEntry("WinNT://" + Hostname + "/" + Group + ",group");
-                DirectoryEntry userEntry = new DirectoryEntry("WinNT://" + domain + "/" + User + ",user");
-                groupEntry.Children.Add(userEntry.Path.ToString(), "user");
+                DirectoryEntry CompEntry = new DirectoryEntry(@"WinNT://SKORIK10/,computer");
+                //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://SKORIK10/Администраторы,Group");
+                DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://SKORIK10/Администраторы,Group");
+            https://www.codeproject.com/Questions/1249614/Add-a-domain-group-to-local-administrators-group-u
+            https://www.pcreview.co.uk/threads/adding-domain-user-account-to-local-administrator-group.2016882/
+
+                //DirectoryEntry userEntry  = new DirectoryEntry("WinNT://" + domain +   "/" + User +  ",User");
+                groupEntry.Children.Add("WinNT://" + domain + "/" + User + ",User", "user");
                 //groupEntry.Invoke("Add", "WinNT://"+domain + "/" + User, "user");
                 //groupEntry.CommitChanges();
                 AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
