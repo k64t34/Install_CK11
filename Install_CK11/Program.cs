@@ -365,14 +365,17 @@ namespace Install_CK11
             bool AddUserToLocalGrooup = false;
             try
             {
-                DirectoryEntry CompEntry = new DirectoryEntry(@"WinNT://SKORIK10/,computer");
+                DirectoryEntry CompEntry = new DirectoryEntry(@"WinNT://AK47,computer");
                 //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://SKORIK10/Администраторы,Group");
-                DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://SKORIK10/Администраторы,Group");
-            https://www.codeproject.com/Questions/1249614/Add-a-domain-group-to-local-administrators-group-u
-            https://www.pcreview.co.uk/threads/adding-domain-user-account-to-local-administrator-group.2016882/
+                //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://AK47/Администраторы,Group");
+                //DirectoryEntry groupEntry = CompEntry.Children.Find(@"WinNT://AK47/Администраторы,Group");
+
+                DirectoryEntry groupEntry = CompEntry.Children.Find("Администраторы","group");
+                //            https://www.codeproject.com/Questions/1274551/How-to-add-a-user-account-to-a-group-member-of
+
 
                 //DirectoryEntry userEntry  = new DirectoryEntry("WinNT://" + domain +   "/" + User +  ",User");
-                groupEntry.Children.Add("WinNT://" + domain + "/" + User + ",User", "user");
+                groupEntry.Children.Add(@"WinNT://AK74/Mary","User");// + domain + "/" + User + ",User", "user");
                 //groupEntry.Invoke("Add", "WinNT://"+domain + "/" + User, "user");
                 //groupEntry.CommitChanges();
                 AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
