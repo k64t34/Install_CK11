@@ -365,7 +365,16 @@ namespace Install_CK11
             bool AddUserToLocalGrooup = false;
             try
             {
-                DirectoryEntry CompEntry = new DirectoryEntry(@"WinNT://AK47,computer");
+
+                PrincipalContext M = new PrincipalContext(ContextType.Machine,Hostname);
+                GroupPrincipal G = GroupPrincipal.FindByIdentity(M, Group);
+                //G.Members.Add(M, IdentityType.UserPrincipalName, "Mary");
+                G.Members.Add(M, IdentityType.Name, "Mary");
+                G.Save();                
+                G.Dispose();
+
+
+                /*DirectoryEntry CompEntry = new DirectoryEntry(@"WinNT://AK47,computer");
                 //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://SKORIK10/Администраторы,Group");
                 //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://AK47/Администраторы,Group");
                 //DirectoryEntry groupEntry = CompEntry.Children.Find(@"WinNT://AK47/Администраторы,Group");
@@ -377,7 +386,7 @@ namespace Install_CK11
                 //DirectoryEntry userEntry  = new DirectoryEntry("WinNT://" + domain +   "/" + User +  ",User");
                 groupEntry.Children.Add(@"WinNT://AK74/Mary","User");// + domain + "/" + User + ",User", "user");
                 //groupEntry.Invoke("Add", "WinNT://"+domain + "/" + User, "user");
-                //groupEntry.CommitChanges();
+                //groupEntry.CommitChanges();*/
                 AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
             }
             catch (Exception ex)
