@@ -22,28 +22,77 @@ using System.Configuration;
 
 namespace Install_CK11
 {
+    class OSInfo
+    {
+        public string Caption;
+        public string OSArchitecture;
+        public string Version;
+        public string OSLanguage;
+        public OSInfo(string Caption, string OSArchitecture,String Version, string OSLanguage)
+        {
+            this.Caption = Caption;
+            this.OSArchitecture = OSArchitecture;
+            this.Version = Version;
+            this.OSLanguage = OSLanguage;
+        }
+            public OSInfo()
+        {
+            this.Caption = null;
+            try
+            {
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
+                foreach (ManagementObject os in searcher.Get())
+                {
+                    this.Caption = os["Caption"].ToString();
+                    this.OSArchitecture=os["OSArchitecture"].ToString();
+                    this.OSLanguage=os["OSLanguage"].ToString();
+                    this.Version=os["Version"].ToString();
+                    break;
+                }
+            }
+            catch { }
+        }
+        public bool Compare(OSInfo OS)
+        {
+            bool Compare = false;
+            if(this.OSLanguage.Equals(OS.OSLanguage))
+                if (String.Compare(this.OSArchitecture, OS.OSArchitecture, false) >= 0)
+                    if (String.Compare(this.Version,OS.Version,false)>=0)
+                        if (this.Version.Contains(OS.Version))
+                            Compare = true;
+            return Compare;
+        }
+        public string Info()
+        {
+            string Info = this.Caption + " " + this.OSArchitecture + " " + this.Version +" "+this.OSLanguage;
+            return Info;
+        }
+    }
     class Program
     {
         public static string __Error;
         const string __root_CIMv2 = @"root\CIMV2";
         static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
-        static string Service_User = "Svc-ck11cl-oduyu";
+        //static string Service_User = "Svc-ck11cl-oduyu";
+        static string Service_User = "Mary";
         static string Service_domain = "oduyu";
+        //static string Service_domain = "AK74";
         static string Hostname;
         static string LocalAdministratorsGroup = null;
         static ulong minPhysicalMemory = 6144;
         const char hr_char = '─';
         static int hr_count = 60;
+        
+        
         static void Main(string[] args)
-        {
+        {            
             Console.BackgroundColor = ConsoleColor.Black; Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
             Console.ForegroundColor = ConsoleColor.Cyan;
             PrintHR(); Console.WriteLine(title); PrintHR();
 #if DEBUG
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine("Debug mode");
+            Console.ForegroundColor = ConsoleColor.Magenta;Console.WriteLine("Debug mode");
 #endif
             Console.ForegroundColor = ConsoleColor.White;
             System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
@@ -51,32 +100,42 @@ namespace Install_CK11
             title += " ver " + (FileVersionInfo.GetVersionInfo((Assembly.GetExecutingAssembly()).Location)).ProductVersion + ": ";
             Console.Title = title;
             //string ScriptFullPathName = Application.ExecutablePath;
-            //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);
-            //TODO:Проверка доступности сетевой папки с дитрибами
-            //Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
-            Hostname = Environment.MachineName;
-
-
+            //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);            
+            
+            Hostname = Environment.MachineName;//Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
             #region Check OS            
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Имя компьютера {0} ", Hostname);
-            try //TODO:Проверка что ПК в домене 
+            try 
             {
                 System.DirectoryServices.ActiveDirectory.Domain cdomain = System.DirectoryServices.ActiveDirectory.Domain.GetComputerDomain();
-                Service_domain = cdomain.Name.ToUpper();
-                Console.Write("Компьютер {0} в домене {1}...", Hostname, Service_domain);PrintOK();
-                if (Service_domain.Contains(".")) 
+                string PCDomain = cdomain.Name.ToUpper();                
+                Console.Write("Компьютер {0} в домене {1}...", Hostname, PCDomain);PrintOK();
+                if (PCDomain.Contains(".")) 
                 {
-                    Service_domain = Service_domain.Substring(0, Service_domain.IndexOf('.'));
-                }                
+                    PCDomain = PCDomain.Substring(0, PCDomain.IndexOf('.'));
+                }
+                if (String.Compare(PCDomain, Service_domain, false) != 0)
+                {
+                    PrintWarn(String.Format("Домен компьютера {0} и домен {1} сервисного пользователя ОИК {2} не совпадают", PCDomain, Service_domain,Service_User));                    
+                }
             }
             catch
             {
                 PrintWarn(String.Format("Компьютер {0} не в домене", Hostname));
+#if DEBUG
+                Service_domain = Hostname;
+#else
                 Service_domain = String.Empty;
+#endif
             }
             Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(GetOSFriendlyName());
+            OSInfo OSrequire = new OSInfo("Windows", "64", "10","1049");            
+            OSInfo OS = new OSInfo();
+            Console.Write(OS.Info()+" ");
+            if (OS.Compare(OSrequire)) PrintOK(); else PrintWarn("ОС не соответсвует требованиям");
+
+
             //TODO:Проверка что текущий пользователь член группу локлаьных админов
             String ProcessOwner = String.Empty;
             Console.ForegroundColor = ConsoleColor.White;
@@ -85,15 +144,7 @@ namespace Install_CK11
 
 
             #endregion
-            #region Check Distrib Folder
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Проверка папки дистрибутивов {0} ...", Distrib_Folder);
-#if !DEBUG
-            if (!Directory.Exists(Distrib_Folder)){Console.ForegroundColor = ConsoleColor.Red;Console.WriteLine("СБОЙ");ScriptFinish(true);}
-#endif
-            PrintOK();
-
-            #endregion
+           
             #region Add Service User
             Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR();
             #region Get name of builtin admin group
@@ -119,8 +170,7 @@ namespace Install_CK11
             else
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.Write("Добавление сервисного пользователя {0}\\{1} в локальную группу {2} ...", Service_domain.ToUpper(), Service_User.ToUpper(), LocalAdministratorsGroup);
-                if (AddUserToLocalGrooup(Service_User,  LocalAdministratorsGroup,  Service_domain))                 
-                //if (AddUserToGroup(Service_domain + "\\" + Service_User, LocalAdministratorsGroup))
+                if (AddUserToLocalGrooup(Service_User,  LocalAdministratorsGroup,  Service_domain))
                     PrintOK();
                 else
                 {
@@ -168,11 +218,21 @@ namespace Install_CK11
                 if (SetPageFileSize(PageFileInitialSize, PageFileMaximumSize)) PrintOK(); else { PrintFail(); Console.ForegroundColor = ConsoleColor.DarkGray; Console.WriteLine(__Error); }
             }
             #endregion
+            
 
-            #region Install Runtime
-            Console.ForegroundColor = ConsoleColor.DarkGray;
+            #region Install Runtime            
             Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR(); Console.ForegroundColor = ConsoleColor.White;
+            #region Check Distrib Folder
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write("Проверка папки дистрибутивов {0} ...", Distrib_Folder);
+#if !DEBUG
+            if (!Directory.Exists(Distrib_Folder)){Console.ForegroundColor = ConsoleColor.Red;Console.WriteLine("СБОЙ");ScriptFinish(true);}
+#endif
+            PrintOK();
+
+            #endregion
             Console.Write("Установка VC2010");
+            
             if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe /passive /norestart")==0) PrintOK();else PrintFail();
             /*WScript.StdOut.Write("VC2010...");
             if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe /passive /norestart", 1, true) == 0) WScript.Echo("OK");
@@ -287,27 +347,12 @@ namespace Install_CK11
         #endregion
         //****************************************************
         static public bool IsUserInLocalGrooup(ref String User, ref String Group, String Domain)
-        {
-            //****************************************************
-            /* work ok
-                using (DirectoryEntry d = new DirectoryEntry("WinNT://" + Hostname + ",computer")) //https://www.script-coding.com/ADSI.html
-                {
-                    using (DirectoryEntry g = d.Children.Find("Администраторы", "group"))
-                    {
-                        object members = g.Invoke("Members", null);
-                        foreach (object member in (IEnumerable)members)
-                        {
-                            DirectoryEntry x = new DirectoryEntry(member);                        
-                            Console.Out.WriteLine(x.Path,x.Name);
-                        }
-                    }
-                }
-                */
+        {            
             bool IsDomainUserInLocalGrooup = false;
-#if DEBUG
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Group {0} contain:", LocalAdministratorsGroup);
-#endif
+            //#if DEBUG
+            //Console.ForegroundColor = ConsoleColor.Gray;
+            //Console.WriteLine("Group {0} contain:", LocalAdministratorsGroup);
+            //#endif
             try
             {
                 StringBuilder sBuilder = new StringBuilder("GroupComponent=");
@@ -341,15 +386,15 @@ namespace Install_CK11
                         //Console.WriteLine("{0} === {1}",fields[0], fields[1]);
                         String domain = fields[0].Substring(fields[0].IndexOf("=") + 1).Replace('"', ' ').Trim();
                         String user = fields[1].Substring(fields[1].IndexOf("=") + 1).Replace('"', ' ').Trim();
-#if DEBUG
-                        Console.WriteLine("{0}\\{1}", domain, user);
-#endif
+                        //#if DEBUG
+                        //Console.WriteLine("{0}\\{1}", domain, user);
+                        //#endif
 
                         if (String.Compare(Service_domain, domain, true) == 0) if (String.Compare(Service_User, user, true) == 0)
-                            {
+                        {
                                 IsDomainUserInLocalGrooup = true;
                                 break;
-                            }
+                        }
                     }
                 }
             }
@@ -357,7 +402,6 @@ namespace Install_CK11
             {
                 Console.WriteLine(ex.ToString());
             }
-
             return (IsDomainUserInLocalGrooup);
         }
         static public bool AddUserToLocalGrooup(string User, string Group, string domain)
@@ -365,37 +409,25 @@ namespace Install_CK11
             bool AddUserToLocalGrooup = false;
             try
             {
-
                 PrincipalContext M = new PrincipalContext(ContextType.Machine,Hostname);
-                GroupPrincipal G = GroupPrincipal.FindByIdentity(M, Group);
-                //G.Members.Add(M, IdentityType.UserPrincipalName, "Mary");
-                G.Members.Add(M, IdentityType.Name, "Mary");
+                GroupPrincipal G = GroupPrincipal.FindByIdentity(M, Group);                
+                G.Members.Add(M, IdentityType.Name, domain+@"\"+ User);
                 G.Save();                
-                G.Dispose();
-
-
-                /*DirectoryEntry CompEntry = new DirectoryEntry(@"WinNT://AK47,computer");
-                //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://SKORIK10/Администраторы,Group");
-                //DirectoryEntry groupEntry = new DirectoryEntry(@"WinNT://AK47/Администраторы,Group");
-                //DirectoryEntry groupEntry = CompEntry.Children.Find(@"WinNT://AK47/Администраторы,Group");
-
-                DirectoryEntry groupEntry = CompEntry.Children.Find("Администраторы","group");
-                //            https://www.codeproject.com/Questions/1274551/How-to-add-a-user-account-to-a-group-member-of
-
-
-                //DirectoryEntry userEntry  = new DirectoryEntry("WinNT://" + domain +   "/" + User +  ",User");
-                groupEntry.Children.Add(@"WinNT://AK74/Mary","User");// + domain + "/" + User + ",User", "user");
-                //groupEntry.Invoke("Add", "WinNT://"+domain + "/" + User, "user");
-                //groupEntry.CommitChanges();*/
+                G.Dispose();                
                 AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
             }
             catch (Exception ex)
             {
+#if DEBUG
                 __Error = ex.ToString();
+#else
+                __Error = ex.Message;
+#endif
             }
             return AddUserToLocalGrooup;
         }
 
+        
         public static string GetOSFriendlyName()
         {
             //COMPUTER : AK47
@@ -412,12 +444,22 @@ namespace Install_CK11
             //TotalVisibleMemorySize: 16703144
             //Version: 10.0.17763
             //WindowsDirectory: C:\Windows
-            //
+            //BuildNumber	17763
+            //Codeset 1251
+            //CountryCode 7
+            //Locale 0419
+
+
             string result = string.Empty;
             ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
             foreach (ManagementObject os in searcher.Get())
             {
                 result = os["Caption"].ToString();
+#if DEBUG
+                Console.WriteLine(os["OSArchitecture"].ToString());
+                Console.WriteLine(os["OSLanguage"].ToString());
+                Console.WriteLine(os["Version"].ToString());
+#endif
                 break;
             }
             return result;
@@ -426,8 +468,7 @@ namespace Install_CK11
         {
             ulong GetPhysicalMemory = 0;
             ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Capacity  FROM Win32_PhysicalMemory");
-            foreach (ManagementObject obj in searcher.Get())
-                //Console.WriteLine(obj["Capacity"].ToString());
+            foreach (ManagementObject obj in searcher.Get())//Console.WriteLine(obj["Capacity"].ToString());
                 GetPhysicalMemory += Convert.ToUInt64(obj["Capacity"].ToString()) >> 20;
             return GetPhysicalMemory;
         }
@@ -438,6 +479,7 @@ namespace Install_CK11
         static public bool SetPageFileSize(ulong PageFileInitialSize, ulong PageFileMaximumSize)
         {
             bool SetPageFileSize = false;
+#if !DEBUG
             try
             {
                 RegistryKey rk = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management", true);
@@ -446,6 +488,7 @@ namespace Install_CK11
                 SetPageFileSize = true;
             }
             catch (Exception e) { __Error = e.Message; }
+#endif
             return SetPageFileSize;
         }
 
@@ -479,7 +522,7 @@ namespace Install_CK11
 
 
 
-        #region Principal Function
+#region Principal Function
         //https://wiki.plecko.hr/doku.php?id=windows:ad:ad.net
         //private string sDomain = "test.com";
         //private string sDefaultOU = "OU=Test Users,OU=Test,DC=test,DC=com";
@@ -554,7 +597,7 @@ namespace Install_CK11
             PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain, Service_domain);
             return oPrincipalContext;
         }
-        #endregion 
+#endregion
         public static bool IsAdministrator()
         {
             WindowsIdentity identity = WindowsIdentity.GetCurrent();
