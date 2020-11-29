@@ -22,6 +22,7 @@ using System.Configuration;
 
 namespace Install_CK11
 {
+    #region    class OSInfo
     class OSInfo
     {
         public string Caption;
@@ -48,6 +49,24 @@ namespace Install_CK11
                     this.OSLanguage=os["OSLanguage"].ToString();
                     this.Version=os["Version"].ToString();
                     break;
+                    //COMPUTER : AK47
+                    //CLASS: ROOT\CIMV2: Win32_OperatingSystem
+                    //QUERY    : SELECT* FROM Win32_OperatingSystem
+                    //Caption: Майкрософт Windows 10 Корпоративная LTSC
+                    //CSName: AK47
+                    //OSArchitecture: 64-разрядная
+                    //OSLanguage: 1049
+                    //SystemDirectory: C:\Windows\system32
+                    //SystemDrive: C:
+                    //TotalSwapSpaceSize:
+                    //TotalVirtualMemorySize: 22208168
+                    //TotalVisibleMemorySize: 16703144
+                    //Version: 10.0.17763
+                    //WindowsDirectory: C:\Windows
+                    //BuildNumber	17763
+                    //Codeset 1251
+                    //CountryCode 7
+                    //Locale 0419
                 }
             }
             catch { }
@@ -68,6 +87,7 @@ namespace Install_CK11
             return Info;
         }
     }
+    #endregion
     class Program
     {
         public static string __Error;
@@ -232,42 +252,119 @@ namespace Install_CK11
 
             #endregion
             Console.Write("Установка VC2010");
-            
-            if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe /passive /norestart")==0) PrintOK();else PrintFail();
+
+            //if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe", @"/passive /norestart") == 0)
+            //if (RunExe(@"D:\Users\Andrew\Google Диск\Projects\oikck11\VC_redist.x64.exe" , @" /passive /norestart") == 0)
+            if (RunExe(@"C:\Users\Andrew\Downloads\ndp48-x86-x64-allos-enu.exe", "") == 0)                 
+                PrintOK(); else { PrintFail();Console.WriteLine(__Error); }
             /*WScript.StdOut.Write("VC2010...");
             if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe /passive /norestart", 1, true) == 0) WScript.Echo("OK");
             WScript.StdOut.Write("VC2015-2019...");
             if (RunExe(Distrib_Folder + "Runtimes\\VC2015-2019_redist.x64.exe /install /passive /norestart", 1, true) == 0) WScript.Echo("OK");*/
             #endregion
+            #region Copy distrub
+            Console.Write("Копирование дистрибутива");
+            
+            if(DirectoryCopy("sourceDirName", "destDirName", true))
+                PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
+            #endregion
+            Console.Write("Запуск программы установки ОИК СК-11");
+            if (RunExe(@"", "") == 0)
+                PrintOK();
+            else { PrintFail(); Console.WriteLine(__Error); }
+
             ScriptFinish(true);
         }
 
-        static public int RunExe(string pProcessPath) {
+        static public int RunExe(string pProcessPath, string args) 
+        {
             int RunExe = -1;
+            ProcessStartInfo ProcessInfo = new ProcessStartInfo();
+            ProcessInfo.Arguments = args;
+            //ProcessInfo.WorkingDirectory = PathDB + "\\distrib";
+            ProcessInfo.FileName = pProcessPath;
+            Process Process;
+            string [] cProgress = {"▄█", "▀█", "█▀", "█▄" };//Console.Write("|-\\/▄█▌▐█▌░▒▓█■▬▀▄");
+            int cIndex = 0;
+            int cCount = cProgress.Length;
+            int cSeconds = 0;
+            string cMsg;            
             try
             {
-                Process myProcess = new Process();
+                Process = Process.Start(ProcessInfo);
+                while (!Process.WaitForExit(1000))
                 {
-                    myProcess.StartInfo.UseShellExecute = false;                    
-                    myProcess.StartInfo.FileName = pProcessPath;
-                    myProcess.StartInfo.CreateNoWindow = true;
-                    //myProcess.Start();
-                    
-                    //Console.Write("|-\\/▄█▌▐█▌░▒▓█■▬▀▄");
+                    cMsg = String.Format("{0} {1} сек", cProgress[cIndex++], cSeconds++);
+                    Console.Write(cMsg);                    
+                    if (cIndex == cCount) cIndex = 0;                    
+                    Console.Write(new string('\b', cMsg.Length));
                 }
+#if DEBUG
+                Console.WriteLine("ExitCode={0}", Process.ExitCode);
+#endif
+                RunExe = 0;
             }
             catch (Exception e)
             {
-                __Error = e.Message;
-            }                
+#if DEBUG
+                __Error = e.ToString();
+#else
+                __Error = e.Message();
+#endif
+            }
             return RunExe;
-
         }
-
+        private static bool  DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
+        {
+            bool boolDirectoryCopy = false;
+            try
+            {
+                DirectoryInfo dir = new DirectoryInfo(sourceDirName);
+                if (!dir.Exists)
+                {
+                    __Error = "Исходная папка не найдена";
+                }
+                else
+                {
+                    DirectoryInfo[] dirs = dir.GetDirectories();
+                    // If the destination directory doesn't exist, create it.       
+                    Directory.CreateDirectory(destDirName);
+                    // Get the files in the directory and copy them to the new location.
+                    FileInfo[] files = dir.GetFiles();
+                    foreach (FileInfo file in files)
+                    {
+                        string tempPath = Path.Combine(destDirName, file.Name);
+                        file.CopyTo(tempPath, false);
+                    }
+                    // If copying subdirectories, copy them and their contents to new location.
+                    boolDirectoryCopy = true;
+                    if (copySubDirs)
+                    {
+                        foreach (DirectoryInfo subdir in dirs)
+                        {
+                            string tempPath = Path.Combine(destDirName, subdir.Name);
+                            if (!DirectoryCopy(subdir.FullName, tempPath, copySubDirs))
+                            { boolDirectoryCopy = false; break; }
+                        }
+                    }
+                    
+                }
+            }
+            catch(Exception e)
+            {
+#if DEBUG
+                __Error = e.ToString();
+#else
+                __Error = e.Message();
+#endif
+            }
+            return boolDirectoryCopy;
+        }
         //****************************************************
         public static void ScriptFinish(bool pause)
+        //****************************************************			
         {
-            //****************************************************			
+
             if (pause)
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.WriteLine(); Console.Write("Press any key to exit . . . "); Console.ResetColor();
@@ -280,7 +377,7 @@ namespace Install_CK11
             }
             Environment.Exit(1);
         }
-        #region GetLocalAdminGroup ver 1
+#region GetLocalAdminGroup ver 1
         //*******************************************
         static public bool WMIGetLocalAdminGroup(ref string group)
         //*******************************************
@@ -307,8 +404,8 @@ namespace Install_CK11
             }
             return (GetLocalAdminGroup);
         }
-        #endregion
-        #region GetLocalAdminGroup ver 2
+#endregion
+#region GetLocalAdminGroup ver 2
         static public bool GetLocalAdminGroup2(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -327,8 +424,8 @@ namespace Install_CK11
 
             return (GetLocalAdminGroup);
         }
-        #endregion
-        #region GetLocalAdminGroup ver 3
+#endregion
+#region GetLocalAdminGroup ver 3
         static public bool GetLocalAdminGroup3(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -344,7 +441,7 @@ namespace Install_CK11
             catch (Exception e) { __Error = "GetLocalAdminGroup()" + e.ToString(); }
             return (GetLocalAdminGroup);
         }
-        #endregion
+#endregion
         //****************************************************
         static public bool IsUserInLocalGrooup(ref String User, ref String Group, String Domain)
         {            
@@ -406,7 +503,10 @@ namespace Install_CK11
         }
         static public bool AddUserToLocalGrooup(string User, string Group, string domain)
         {
-            bool AddUserToLocalGrooup = false;
+#if DEBUG
+            if (!IsAdministrator()) return false;
+#endif
+                bool AddUserToLocalGrooup = false;
             try
             {
                 PrincipalContext M = new PrincipalContext(ContextType.Machine,Hostname);
@@ -428,42 +528,7 @@ namespace Install_CK11
         }
 
         
-        public static string GetOSFriendlyName()
-        {
-            //COMPUTER : AK47
-            //CLASS: ROOT\CIMV2: Win32_OperatingSystem
-            //QUERY    : SELECT* FROM Win32_OperatingSystem
-            //Caption: Майкрософт Windows 10 Корпоративная LTSC
-            //CSName: AK47
-            //OSArchitecture: 64-разрядная
-            //OSLanguage: 1049
-            //SystemDirectory: C:\Windows\system32
-            //SystemDrive: C:
-            //TotalSwapSpaceSize:
-            //TotalVirtualMemorySize: 22208168
-            //TotalVisibleMemorySize: 16703144
-            //Version: 10.0.17763
-            //WindowsDirectory: C:\Windows
-            //BuildNumber	17763
-            //Codeset 1251
-            //CountryCode 7
-            //Locale 0419
-
-
-            string result = string.Empty;
-            ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
-            foreach (ManagementObject os in searcher.Get())
-            {
-                result = os["Caption"].ToString();
-#if DEBUG
-                Console.WriteLine(os["OSArchitecture"].ToString());
-                Console.WriteLine(os["OSLanguage"].ToString());
-                Console.WriteLine(os["Version"].ToString());
-#endif
-                break;
-            }
-            return result;
-        }
+        
         static public ulong GetPhysicalMemory()
         {
             ulong GetPhysicalMemory = 0;
@@ -491,36 +556,6 @@ namespace Install_CK11
 #endif
             return SetPageFileSize;
         }
-
-        //*******************************************************************************************
-        //string ou = "OU=Collections,DC=Domain,DC=local";
-        //PrincipalContext ctx = new PrincipalContext(ContextType.Domain, "Domain.Local", ou);
-        //static public bool AddUserToGroup(PrincipalContext ctx, DirectoryEntry userId, string groupName)
-        //{
-        //    try
-        //    {
-        //        GroupPrincipal groupPrincipal = GroupPrincipal.FindByIdentity(ctx, groupName);
-        //        if (groupPrincipal != null)
-        //        {
-        //            DirectoryEntry entry = (DirectoryEntry)groupPrincipal.GetUnderlyingObject();
-        //            entry.Invoke("Add", new object[] { userId.Path.ToString() });
-        //            userId.CommitChanges();
-        //       }
-        //        else
-        //        {
-        //           return true;
-        //        }
-        //
-        //        return true;
-        //    }
-        //    catch
-        //    {
-        //        return false;
-        //    }
-        //}
-
-
-
 
 #region Principal Function
         //https://wiki.plecko.hr/doku.php?id=windows:ad:ad.net
