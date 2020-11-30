@@ -254,27 +254,80 @@ namespace Install_CK11
             PrintOK();
 
             #endregion
-            Console.Write("Установка VC2010");
-
-            //if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe", @"/passive /norestart") == 0)
-            //if (RunExe(@"D:\Users\Andrew\Google Диск\Projects\oikck11\VC_redist.x64.exe" , @" /passive /norestart") == 0)
-            if (RunExe(@"C:\Users\Andrew\Downloads\ndp48-x86-x64-allos-enu.exe", "") == 0)                 
+            Console.Write("Установка VC2010 ");
+            if (RunExe( Distrib_Folder+"\\"+Distrib_Folder_Runtime+"\\"+@"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)                 
                 PrintOK(); else { PrintFail();Console.WriteLine(__Error); }
-            /*WScript.StdOut.Write("VC2010...");
-            if (RunExe(Distrib_Folder + "Runtimes\\VC2010_redist_x64.exe /passive /norestart", 1, true) == 0) WScript.Echo("OK");
-            WScript.StdOut.Write("VC2015-2019...");
-            if (RunExe(Distrib_Folder + "Runtimes\\VC2015-2019_redist.x64.exe /install /passive /norestart", 1, true) == 0) WScript.Echo("OK");*/
+            Console.Write("Установка VC2015-2019 ");
+            /*if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
+                PrintOK();
+            else { PrintFail(); Console.WriteLine(__Error); }*/
+
+            Console.Write("Проверка версии .NET ");
+            String _NET_VERSION = String.Empty;
+            try
+            {
+                //RegistryKey rk = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", true);
+                _NET_VERSION = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", "Version", String.Empty);
+                
+            }
+            catch (Exception e) { 
+   #if DEBUG
+            __Error = e.ToString();
+#else
+            __Error = e.Message;
+#endif
+        }
+            if (!String.IsNullOrEmpty(_NET_VERSION))
+            {
+                Console.Write(_NET_VERSION);
+                if (String.Compare(_NET_VERSION, "4.8.") >= 0) PrintOK();
+                else _NET_VERSION = String.Empty;
+            }
+            if (String.IsNullOrEmpty(_NET_VERSION))
+            {
+                Console.Write("Установка .NET 4.8 ");
+                if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"ndp48-x86-x64-allos-enu.exe", "") == 0)
+                    PrintOK();
+                else { PrintFail(); Console.WriteLine(__Error); }
+            }
+
+
+
             #endregion
             #region Copy distrub
-            Console.Write("Копирование дистрибутива");
-            
-            if(DirectoryCopy("sourceDirName", "destDirName", true))
-                PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
+            Console.Write("Копирование дистрибутива ");
+            string FolderTMP= String.Empty; 
+            try
+            {
+                FolderTMP = Path.Combine(Path.GetTempPath(), Distrib_Folder_CK11);
+                Directory.CreateDirectory(FolderTMP);
+                Console.Write(" во временную папку "+ FolderTMP);
+            }
+            catch(Exception e)
+            {
+                FolderTMP = String.Empty;
+#if DEBUG
+                __Error = e.ToString();
+#else
+            __Error = e.Message;
+#endif
+             Console.WriteLine("Не удалось создать временную папку для копирования дистрибутива\n"+__Error);
+            }
+            if (String.IsNullOrEmpty(FolderTMP)) PrintFail();
+                else
+            if (DirectoryCopy(Distrib_Folder + "\\" + Distrib_Folder_CK11, FolderTMP, true))
+            {
+                PrintOK();
+            }
+            else { PrintFail(); Console.WriteLine(__Error); }
             #endregion
             Console.Write("Запуск программы установки ОИК СК-11");
             if (RunExe(@"", "") == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
+
+            Console.Write("Удаление временной папки");
+            //Directory.Delete(subPath);
 
             ScriptFinish(true);
         }
@@ -303,7 +356,7 @@ namespace Install_CK11
                     Console.Write(new string('\b', cMsg.Length));
                 }
 #if DEBUG
-                Console.WriteLine("ExitCode={0}", Process.ExitCode);
+                Console.Write("\nExitCode={0} ", Process.ExitCode);
 #endif
                 RunExe = 0;
             }
