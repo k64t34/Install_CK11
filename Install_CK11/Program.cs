@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Windows.Forms;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,6 +19,7 @@ using System.DirectoryServices.ActiveDirectory;
 using System.DirectoryServices.AccountManagement;
 using System.Data;
 using System.Configuration;
+
 
 
 
@@ -90,6 +93,11 @@ namespace Install_CK11
     #endregion
     class Program
     {
+        [DllImport("Kernel32.dll")]
+        private static extern IntPtr GetConsoleWindow();
+        [DllImport("User32.dll")]
+        private static extern bool  ShowWindow(IntPtr hwind,int cmdShow);
+
         public static string __Error;
         const string __root_CIMv2 = @"root\CIMV2";
         static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
@@ -103,9 +111,7 @@ namespace Install_CK11
         static string LocalAdministratorsGroup = null;
         static ulong minPhysicalMemory = 6144;
         const char hr_char = '─';
-        static int hr_count = 60;
-        
-        
+        static int hr_count = 60;        
         static void Main(string[] args)
         {            
             Console.BackgroundColor = ConsoleColor.Black; Console.Clear();
@@ -122,8 +128,7 @@ namespace Install_CK11
             title += " ver " + (FileVersionInfo.GetVersionInfo((Assembly.GetExecutingAssembly()).Location)).ProductVersion + ": ";
             Console.Title = title;
             //string ScriptFullPathName = Application.ExecutablePath;
-            //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);            
-            
+            //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);                        
             Hostname = Environment.MachineName;//Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
             #region Check OS            
             Console.ForegroundColor = ConsoleColor.White;
@@ -163,13 +168,39 @@ namespace Install_CK11
             String ProcessOwner = String.Empty;
             Console.ForegroundColor = ConsoleColor.White;
             if (GetProcessOwner(ref ProcessOwner)) { Console.Write("Программа запущена от имени {0}. ", ProcessOwner); }
-            if (IsAdministrator()) { Console.Write("Программа запущена от имени Администратора. "); PrintOK(); } else { PrintWarn("Программа запущена НЕ от имени Администратора"); }
+            if (IsAdministrator()) { Console.Write("Программа запущена от имени Администратора. "); PrintOK(); } 
+            else
+            {
+                PrintWarn("Программа запущена НЕ от имени Администратора");                
+                ProcessStartInfo proc = new ProcessStartInfo();
+                proc.UseShellExecute = true;
+                proc.WorkingDirectory = Environment.CurrentDirectory;
+                proc.FileName = Application.ExecutablePath;
+                proc.Verb = "runas";
+                Console.Write("Попытка перезапустить программу от имени Администратора...");
+                try
+                {
+                    Process.Start(proc);
+                    PrintOK();
+                    IntPtr hwind = GetConsoleWindow();
+                    if (hwind != IntPtr.Zero)
+                    { 
+                        ShowWindow(hwind,0);
+                    }
+                    ScriptFinish(true);
+                    return;
+                    //Application.Exit();  // Quit itself
+                }
+                catch
+                {
+                    PrintFail();
+                }
+                
+            }
+                #endregion
 
-
-            #endregion
-           
-            #region Add Service User
-            Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR();
+                #region Add Service User
+                Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR();
             #region Get name of builtin admin group
 
             if (!WMIGetLocalAdminGroup(ref LocalAdministratorsGroup))
@@ -254,14 +285,16 @@ namespace Install_CK11
             PrintOK();
 
             #endregion
+            Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2010 ");
             if (RunExe( Distrib_Folder+"\\"+Distrib_Folder_Runtime+"\\"+@"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)                 
                 PrintOK(); else { PrintFail();Console.WriteLine(__Error); }
+            Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2015-2019 ");
             /*if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }*/
-
+            Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка версии .NET ");
             String _NET_VERSION = String.Empty;
             try
@@ -321,11 +354,12 @@ namespace Install_CK11
             }
             else { PrintFail(); Console.WriteLine(__Error); }
             #endregion
+            Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Запуск программы установки ОИК СК-11");
             if (RunExe(@"", "") == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
-
+            Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Удаление временной папки");
             //Directory.Delete(subPath);
 
@@ -370,7 +404,7 @@ namespace Install_CK11
             }
             return RunExe;
         }
-        private static bool  DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
+            public static bool DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
         {
             bool boolDirectoryCopy = false;
             try
@@ -424,7 +458,7 @@ namespace Install_CK11
             if (pause)
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.WriteLine(); Console.Write("Press any key to exit . . . "); Console.ResetColor();
-                DateTime timeoutvalue = DateTime.Now.AddSeconds(100);
+                DateTime timeoutvalue = DateTime.Now.AddSeconds(10);
                 while (DateTime.Now < timeoutvalue)
                 {
                     if (Console.KeyAvailable) break;
