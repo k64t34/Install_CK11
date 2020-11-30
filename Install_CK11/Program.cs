@@ -93,8 +93,10 @@ namespace Install_CK11
         public static string __Error;
         const string __root_CIMv2 = @"root\CIMV2";
         static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
-        //static string Service_User = "Svc-ck11cl-oduyu";
-        static string Service_User = "Mary";
+        static string Distrib_Folder_Runtime = @"Runtimes";
+        static string Distrib_Folder_CK11 = @"Дистрибутив клиента  СК-11" ;
+        static string Service_User = "Svc-ck11cl-oduyu";
+        //static string Service_User = "Mary";
         static string Service_domain = "oduyu";
         //static string Service_domain = "AK74";
         static string Hostname;
@@ -135,6 +137,7 @@ namespace Install_CK11
                 {
                     PCDomain = PCDomain.Substring(0, PCDomain.IndexOf('.'));
                 }
+                Service_domain = Service_domain.ToUpper();
                 if (String.Compare(PCDomain, Service_domain, false) != 0)
                 {
                     PrintWarn(String.Format("Домен компьютера {0} и домен {1} сервисного пользователя ОИК {2} не совпадают", PCDomain, Service_domain,Service_User));                    
@@ -309,7 +312,7 @@ namespace Install_CK11
 #if DEBUG
                 __Error = e.ToString();
 #else
-                __Error = e.Message();
+                __Error = e.Message;
 #endif
             }
             return RunExe;
@@ -355,7 +358,7 @@ namespace Install_CK11
 #if DEBUG
                 __Error = e.ToString();
 #else
-                __Error = e.Message();
+                __Error = e.Message;
 #endif
             }
             return boolDirectoryCopy;
