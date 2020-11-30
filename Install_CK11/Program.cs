@@ -19,10 +19,6 @@ using System.DirectoryServices.ActiveDirectory;
 using System.DirectoryServices.AccountManagement;
 using System.Data;
 using System.Configuration;
-
-
-
-
 namespace Install_CK11
 {
     #region    class OSInfo
@@ -113,7 +109,7 @@ namespace Install_CK11
         const char hr_char = '─';
         static int hr_count = 60;        
         static void Main(string[] args)
-        {            
+        {
             Console.BackgroundColor = ConsoleColor.Black; Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
@@ -188,8 +184,7 @@ namespace Install_CK11
                         ShowWindow(hwind,0);
                     }
                     ScriptFinish(true);
-                    return;
-                    //Application.Exit();  // Quit itself
+                    return;                    
                 }
                 catch
                 {
@@ -294,14 +289,13 @@ namespace Install_CK11
             /*if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }*/
+            #region Check .NET
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка версии .NET ");
             String _NET_VERSION = String.Empty;
             try
-            {
-                //RegistryKey rk = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", true);
-                _NET_VERSION = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", "Version", String.Empty);
-                
+            {                
+                _NET_VERSION = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", "Version", String.Empty);                
             }
             catch (Exception e) { 
    #if DEBUG
@@ -318,51 +312,80 @@ namespace Install_CK11
             }
             if (String.IsNullOrEmpty(_NET_VERSION))
             {
+                Console.ForegroundColor = ConsoleColor.White;
                 Console.Write("Установка .NET 4.8 ");
                 if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"ndp48-x86-x64-allos-enu.exe", "") == 0)
+                {
                     PrintOK();
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("\n\n\n\aНеобходимо перегрузить компьютер! Перегружать (Y/N)");
+                    ConsoleKeyInfo anwer = Console.ReadKey();
+                    if (anwer.KeyChar == 121 || anwer.KeyChar == 89)
+                    {                        
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.WriteLine("\nПерезагрузка ПК ...");
+                        try
+                        {
+                            Registry.SetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce", Path.GetFileName(Application.ExecutablePath), Application.ExecutablePath, RegistryValueKind.String);
+                            Console.ForegroundColor = ConsoleColor.Magenta;
+                            PrintWarn("\nУстановка продолжиться АВТОМАТИЧЕСКИ после перезагрузки ПК");                            
+                        }
+                        catch { }
+                        System.Diagnostics.Process.Start("shutdown.exe", "-r -t 10");
+                    }
+                }
                 else { PrintFail(); Console.WriteLine(__Error); }
             }
-
-
+            #endregion
 
             #endregion
             #region Copy distrub
+            Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Копирование дистрибутива ");
-            string FolderTMP= String.Empty; 
+            string FolderTMP= String.Empty;
+            bool useFolderTMP = false;
             try
             {
                 FolderTMP = Path.Combine(Path.GetTempPath(), Distrib_Folder_CK11);
                 Directory.CreateDirectory(FolderTMP);
                 Console.Write(" во временную папку "+ FolderTMP);
+                useFolderTMP = true;
             }
             catch(Exception e)
             {
-                FolderTMP = String.Empty;
-#if DEBUG
+                #if DEBUG
                 __Error = e.ToString();
 #else
             __Error = e.Message;
 #endif
-             Console.WriteLine("Не удалось создать временную папку для копирования дистрибутива\n"+__Error);
+                PrintFail();
+                Console.WriteLine("Не удалось создать временную папку для копирования дистрибутива\n"+__Error);             
             }
-            if (String.IsNullOrEmpty(FolderTMP)) PrintFail();
-                else
-            if (DirectoryCopy(Distrib_Folder + "\\" + Distrib_Folder_CK11, FolderTMP, true))
-            {
-                PrintOK();
-            }
-            else { PrintFail(); Console.WriteLine(__Error); }
+            if (useFolderTMP) 
+                if (DirectoryCopy(Distrib_Folder + "\\" + Distrib_Folder_CK11, FolderTMP, true))
+                {
+                    PrintOK();
+                }
+                else 
+                {
+                    PrintFail();
+                    Console.WriteLine(__Error);
+                    PrintWarn("Не удалось скопировать дистрибутив во временную папку.\n Установка будет запущена с " + Distrib_Folder + "\\" + Distrib_Folder_CK11);                    
+                    useFolderTMP = false;
+                }            
             #endregion
             Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Запуск программы установки ОИК СК-11");
-            if (RunExe(@"", "") == 0)
+            Console.Write("Запуск программы установки ОИК СК-11");            
+            if (RunExe(Distrib_Folder+@"autoinstall\AutoInstall CK11.exe",useFolderTMP ?FolderTMP: Distrib_Folder + "\\" + Distrib_Folder_CK11) == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Удаление временной папки");
-            //Directory.Delete(subPath);
-
+            if (Directory.Exists(FolderTMP))
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write("Удаление временной папки");                
+                Directory.Delete(FolderTMP,true);
+            }
+            Console.Write("\a");
             ScriptFinish(true);
         }
 
@@ -374,7 +397,7 @@ namespace Install_CK11
             //ProcessInfo.WorkingDirectory = PathDB + "\\distrib";
             ProcessInfo.FileName = pProcessPath;
             Process Process;
-            string [] cProgress = {"▄█", "▀█", "█▀", "█▄" };//Console.Write("|-\\/▄█▌▐█▌░▒▓█■▬▀▄");
+            string [] cProgress = {"▄█", "█▄", "█▀", "▀█" };//Console.Write("|-\\/▄█▌▐█▌░▒▓█■▬▀▄");
             int cIndex = 0;
             int cCount = cProgress.Length;
             int cSeconds = 0;
@@ -458,7 +481,12 @@ namespace Install_CK11
             if (pause)
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.WriteLine(); Console.Write("Press any key to exit . . . "); Console.ResetColor();
-                DateTime timeoutvalue = DateTime.Now.AddSeconds(10);
+#if DEBUG
+                int timeout = 100;
+#else
+int timeout =10;
+#endif
+                DateTime timeoutvalue = DateTime.Now.AddSeconds(timeout);
                 while (DateTime.Now < timeoutvalue)
                 {
                     if (Console.KeyAvailable) break;
