@@ -13,6 +13,7 @@ using System.Reflection;
 using System.DirectoryServices;
 using System.Collections;
 using System.Management;
+using System.Net.Mail;
 using System.Windows;
 using System.Security.Principal;
 using System.DirectoryServices.ActiveDirectory;
@@ -92,13 +93,13 @@ namespace Install_CK11
         [DllImport("Kernel32.dll")]
         private static extern IntPtr GetConsoleWindow();
         [DllImport("User32.dll")]
-        private static extern bool  ShowWindow(IntPtr hwind,int cmdShow);
+        private static extern bool ShowWindow(IntPtr hwind, int cmdShow);
 
         public static string __Error;
         const string __root_CIMv2 = @"root\CIMV2";
         static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
         static string Distrib_Folder_Runtime = @"Runtimes";
-        static string Distrib_Folder_CK11 = @"Дистрибутив клиента  СК-11" ;
+        static string Distrib_Folder_CK11 = @"Дистрибутив клиента  СК-11";
         static string Service_User = "Svc-ck11cl-oduyu";
         //static string Service_User = "Mary";
         static string Service_domain = "oduyu";
@@ -107,16 +108,18 @@ namespace Install_CK11
         static string LocalAdministratorsGroup = null;
         static ulong minPhysicalMemory = 6144;
         const char hr_char = '─';
-        static int hr_count = 60;        
+        static int hr_count = 60;
+        static ConsoleKeyInfo anwer ;
         static void Main(string[] args)
         {
+            //ReadAllSettings();Console.ReadKey();return;
             Console.BackgroundColor = ConsoleColor.Black; Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
             Console.ForegroundColor = ConsoleColor.Cyan;
             PrintHR(); Console.WriteLine(title); PrintHR();
 #if DEBUG
-            Console.ForegroundColor = ConsoleColor.Magenta;Console.WriteLine("Debug mode");
+            Console.ForegroundColor = ConsoleColor.Magenta; Console.WriteLine("Debug mode");
 #endif
             Console.ForegroundColor = ConsoleColor.White;
             System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
@@ -129,19 +132,19 @@ namespace Install_CK11
             #region Check OS            
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Имя компьютера {0} ", Hostname);
-            try 
+            try
             {
                 System.DirectoryServices.ActiveDirectory.Domain cdomain = System.DirectoryServices.ActiveDirectory.Domain.GetComputerDomain();
-                string PCDomain = cdomain.Name.ToUpper();                
-                Console.Write("Компьютер {0} в домене {1}...", Hostname, PCDomain);PrintOK();
-                if (PCDomain.Contains(".")) 
+                string PCDomain = cdomain.Name.ToUpper();
+                Console.Write("Компьютер {0} в домене {1}...", Hostname, PCDomain); PrintOK();
+                if (PCDomain.Contains("."))
                 {
                     PCDomain = PCDomain.Substring(0, PCDomain.IndexOf('.'));
                 }
                 Service_domain = Service_domain.ToUpper();
                 if (String.Compare(PCDomain, Service_domain, false) != 0)
                 {
-                    PrintWarn(String.Format("Домен компьютера {0} и домен {1} сервисного пользователя ОИК {2} не совпадают", PCDomain, Service_domain,Service_User));                    
+                    PrintWarn(String.Format("Домен компьютера {0} и домен {1} сервисного пользователя ОИК {2} не совпадают", PCDomain, Service_domain, Service_User));
                 }
             }
             catch
@@ -154,9 +157,9 @@ namespace Install_CK11
 #endif
             }
             Console.ForegroundColor = ConsoleColor.White;
-            OSInfo OSrequire = new OSInfo("Windows", "64", "10","1049");            
+            OSInfo OSrequire = new OSInfo("Windows", "64", "10", "1049");
             OSInfo OS = new OSInfo();
-            Console.Write(OS.Info()+" ");
+            Console.Write(OS.Info() + " ");
             if (OS.Compare(OSrequire)) PrintOK(); else PrintWarn("ОС не соответсвует требованиям");
 
 
@@ -164,10 +167,10 @@ namespace Install_CK11
             String ProcessOwner = String.Empty;
             Console.ForegroundColor = ConsoleColor.White;
             if (GetProcessOwner(ref ProcessOwner)) { Console.Write("Программа запущена от имени {0}. ", ProcessOwner); }
-            if (IsAdministrator()) { Console.Write("Программа запущена от имени Администратора. "); PrintOK(); } 
+            if (IsAdministrator()) { Console.Write("Программа запущена от имени Администратора. "); PrintOK(); }
             else
             {
-                PrintWarn("Программа запущена НЕ от имени Администратора");                
+                PrintWarn("Программа запущена НЕ от имени Администратора");
                 ProcessStartInfo proc = new ProcessStartInfo();
                 proc.UseShellExecute = true;
                 proc.WorkingDirectory = Environment.CurrentDirectory;
@@ -180,22 +183,22 @@ namespace Install_CK11
                     PrintOK();
                     IntPtr hwind = GetConsoleWindow();
                     if (hwind != IntPtr.Zero)
-                    { 
-                        ShowWindow(hwind,0);
+                    {
+                        ShowWindow(hwind, 0);
                     }
                     ScriptFinish(true);
-                    return;                    
+                    return;
                 }
                 catch
                 {
                     PrintFail();
                 }
-                
-            }
-                #endregion
 
-                #region Add Service User
-                Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR();
+            }
+            #endregion
+
+            #region Add Service User
+            Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR();
             #region Get name of builtin admin group
 
             if (!WMIGetLocalAdminGroup(ref LocalAdministratorsGroup))
@@ -219,7 +222,7 @@ namespace Install_CK11
             else
             {
                 Console.ForegroundColor = ConsoleColor.White; Console.Write("Добавление сервисного пользователя {0}\\{1} в локальную группу {2} ...", Service_domain.ToUpper(), Service_User.ToUpper(), LocalAdministratorsGroup);
-                if (AddUserToLocalGrooup(Service_User,  LocalAdministratorsGroup,  Service_domain))
+                if (AddUserToLocalGrooup(Service_User, LocalAdministratorsGroup, Service_domain))
                     PrintOK();
                 else
                 {
@@ -245,7 +248,7 @@ namespace Install_CK11
             }
             ulong PageFileMaximumSize = (ulong)(1.5 * PhysicalMemory);
             ulong PageFileInitialSize = PageFileMaximumSize;
-            ManagementObjectSearcher 
+            ManagementObjectSearcher
             searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PageFileSetting");
             foreach (ManagementObject obj in searcher.Get())
             {
@@ -267,7 +270,7 @@ namespace Install_CK11
                 if (SetPageFileSize(PageFileInitialSize, PageFileMaximumSize)) PrintOK(); else { PrintFail(); Console.ForegroundColor = ConsoleColor.DarkGray; Console.WriteLine(__Error); }
             }
             #endregion
-            
+
 
             #region Install Runtime            
             Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR(); Console.ForegroundColor = ConsoleColor.White;
@@ -282,8 +285,8 @@ namespace Install_CK11
             #endregion
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2010 ");
-            if (RunExe( Distrib_Folder+"\\"+Distrib_Folder_Runtime+"\\"+@"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)                 
-                PrintOK(); else { PrintFail();Console.WriteLine(__Error); }
+            if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)
+                PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2015-2019 ");
             /*if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
@@ -294,16 +297,16 @@ namespace Install_CK11
             Console.Write("Проверка версии .NET ");
             String _NET_VERSION = String.Empty;
             try
-            {                
-                _NET_VERSION = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", "Version", String.Empty);                
+            {
+                _NET_VERSION = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", "Version", String.Empty);
             }
-            catch (Exception e) { 
-   #if DEBUG
-            __Error = e.ToString();
+            catch (Exception e) {
+#if DEBUG
+                __Error = e.ToString();
 #else
             __Error = e.Message;
 #endif
-        }
+            }
             if (!String.IsNullOrEmpty(_NET_VERSION))
             {
                 Console.Write(_NET_VERSION);
@@ -319,16 +322,16 @@ namespace Install_CK11
                     PrintOK();
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.Write("\n\n\n\aНеобходимо перегрузить компьютер! Перегружать (Y/N)");
-                    ConsoleKeyInfo anwer = Console.ReadKey();
+                    anwer = Console.ReadKey();
                     if (anwer.KeyChar == 121 || anwer.KeyChar == 89)
-                    {                        
+                    {
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.WriteLine("\nПерезагрузка ПК ...");
                         try
                         {
                             Registry.SetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce", Path.GetFileName(Application.ExecutablePath), Application.ExecutablePath, RegistryValueKind.String);
                             Console.ForegroundColor = ConsoleColor.Magenta;
-                            PrintWarn("\nУстановка продолжиться АВТОМАТИЧЕСКИ после перезагрузки ПК");                            
+                            PrintWarn("\nУстановка продолжиться АВТОМАТИЧЕСКИ после перезагрузки ПК");
                         }
                         catch { }
                         System.Diagnostics.Process.Start("shutdown.exe", "-r -t 10");
@@ -342,54 +345,64 @@ namespace Install_CK11
             #region Copy distrub
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Копирование дистрибутива ");
-            string FolderTMP= String.Empty;
+            string FolderTMP = String.Empty;
             bool useFolderTMP = false;
             try
             {
                 FolderTMP = Path.Combine(Path.GetTempPath(), Distrib_Folder_CK11);
                 Directory.CreateDirectory(FolderTMP);
-                Console.Write(" во временную папку "+ FolderTMP);
+                Console.Write(" во временную папку " + FolderTMP);
                 useFolderTMP = true;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                #if DEBUG
+#if DEBUG
                 __Error = e.ToString();
 #else
             __Error = e.Message;
 #endif
                 PrintFail();
-                Console.WriteLine("Не удалось создать временную папку для копирования дистрибутива\n"+__Error);             
+                Console.WriteLine("Не удалось создать временную папку для копирования дистрибутива\n" + __Error);
             }
-            if (useFolderTMP) 
+            if (useFolderTMP)
                 if (DirectoryCopy(Distrib_Folder + "\\" + Distrib_Folder_CK11, FolderTMP, true))
                 {
                     PrintOK();
                 }
-                else 
+                else
                 {
                     PrintFail();
                     Console.WriteLine(__Error);
-                    PrintWarn("Не удалось скопировать дистрибутив во временную папку.\n Установка будет запущена с " + Distrib_Folder + "\\" + Distrib_Folder_CK11);                    
+                    PrintWarn("Не удалось скопировать дистрибутив во временную папку.\n Установка будет запущена с " + Distrib_Folder + "\\" + Distrib_Folder_CK11);
                     useFolderTMP = false;
-                }            
+                }
             #endregion
             Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Запуск программы установки ОИК СК-11");            
-            if (RunExe(Distrib_Folder+@"autoinstall\AutoInstall CK11.exe",useFolderTMP ?FolderTMP: Distrib_Folder + "\\" + Distrib_Folder_CK11) == 0)
+            Console.Write("Запуск программы установки ОИК СК-11");
+            if (RunExe(Distrib_Folder + @"autoinstall\AutoInstall CK11.exe", useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11) == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
             if (Directory.Exists(FolderTMP))
             {
                 Console.ForegroundColor = ConsoleColor.White;
-                Console.Write("Удаление временной папки");                
-                Directory.Delete(FolderTMP,true);
+                Console.Write("Удаление временной папки");
+                Directory.Delete(FolderTMP, true);
             }
             Console.Write("\a");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("\n\n\n\aОтправить администратору ОИК сообщение об установленном клиенте на этом ПК (Y/N)");
+            anwer = Console.ReadKey();
+            if (anwer.KeyChar == 121 || anwer.KeyChar == 89)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write("\nОтправка сообщения");
+                if (SendMail()) PrintOK();
+                else { PrintFail(); Console.WriteLine(__Error); }
+            }
             ScriptFinish(true);
         }
 
-        static public int RunExe(string pProcessPath, string args) 
+        static public int RunExe(string pProcessPath, string args)
         {
             int RunExe = -1;
             ProcessStartInfo ProcessInfo = new ProcessStartInfo();
@@ -397,19 +410,19 @@ namespace Install_CK11
             //ProcessInfo.WorkingDirectory = PathDB + "\\distrib";
             ProcessInfo.FileName = pProcessPath;
             Process Process;
-            string [] cProgress = {"▄█", "█▄", "█▀", "▀█" };//Console.Write("|-\\/▄█▌▐█▌░▒▓█■▬▀▄");
+            string[] cProgress = { "▄█", "█▄", "█▀", "▀█" };//Console.Write("|-\\/▄█▌▐█▌░▒▓█■▬▀▄");
             int cIndex = 0;
             int cCount = cProgress.Length;
             int cSeconds = 0;
-            string cMsg;            
+            string cMsg;
             try
             {
                 Process = Process.Start(ProcessInfo);
                 while (!Process.WaitForExit(1000))
                 {
                     cMsg = String.Format("{0} {1} сек", cProgress[cIndex++], cSeconds++);
-                    Console.Write(cMsg);                    
-                    if (cIndex == cCount) cIndex = 0;                    
+                    Console.Write(cMsg);
+                    if (cIndex == cCount) cIndex = 0;
                     Console.Write(new string('\b', cMsg.Length));
                 }
 #if DEBUG
@@ -427,7 +440,7 @@ namespace Install_CK11
             }
             return RunExe;
         }
-            public static bool DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
+        public static bool DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
         {
             bool boolDirectoryCopy = false;
             try
@@ -460,10 +473,10 @@ namespace Install_CK11
                             { boolDirectoryCopy = false; break; }
                         }
                     }
-                    
+
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
 #if DEBUG
                 __Error = e.ToString();
@@ -495,7 +508,7 @@ int timeout =10;
             }
             Environment.Exit(1);
         }
-#region GetLocalAdminGroup ver 1
+        #region GetLocalAdminGroup ver 1
         //*******************************************
         static public bool WMIGetLocalAdminGroup(ref string group)
         //*******************************************
@@ -522,8 +535,8 @@ int timeout =10;
             }
             return (GetLocalAdminGroup);
         }
-#endregion
-#region GetLocalAdminGroup ver 2
+        #endregion
+        #region GetLocalAdminGroup ver 2
         static public bool GetLocalAdminGroup2(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -542,8 +555,8 @@ int timeout =10;
 
             return (GetLocalAdminGroup);
         }
-#endregion
-#region GetLocalAdminGroup ver 3
+        #endregion
+        #region GetLocalAdminGroup ver 3
         static public bool GetLocalAdminGroup3(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -559,10 +572,10 @@ int timeout =10;
             catch (Exception e) { __Error = "GetLocalAdminGroup()" + e.ToString(); }
             return (GetLocalAdminGroup);
         }
-#endregion
+        #endregion
         //****************************************************
         static public bool IsUserInLocalGrooup(ref String User, ref String Group, String Domain)
-        {            
+        {
             bool IsDomainUserInLocalGrooup = false;
             //#if DEBUG
             //Console.ForegroundColor = ConsoleColor.Gray;
@@ -606,10 +619,10 @@ int timeout =10;
                         //#endif
 
                         if (String.Compare(Service_domain, domain, true) == 0) if (String.Compare(Service_User, user, true) == 0)
-                        {
+                            {
                                 IsDomainUserInLocalGrooup = true;
                                 break;
-                        }
+                            }
                     }
                 }
             }
@@ -624,14 +637,14 @@ int timeout =10;
 #if DEBUG
             if (!IsAdministrator()) return false;
 #endif
-                bool AddUserToLocalGrooup = false;
+            bool AddUserToLocalGrooup = false;
             try
             {
-                PrincipalContext M = new PrincipalContext(ContextType.Machine,Hostname);
-                GroupPrincipal G = GroupPrincipal.FindByIdentity(M, Group);                
-                G.Members.Add(M, IdentityType.Name, domain+@"\"+ User);
-                G.Save();                
-                G.Dispose();                
+                PrincipalContext M = new PrincipalContext(ContextType.Machine, Hostname);
+                GroupPrincipal G = GroupPrincipal.FindByIdentity(M, Group);
+                G.Members.Add(M, IdentityType.Name, domain + @"\" + User);
+                G.Save();
+                G.Dispose();
                 AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
             }
             catch (Exception ex)
@@ -645,8 +658,8 @@ int timeout =10;
             return AddUserToLocalGrooup;
         }
 
-        
-        
+
+
         static public ulong GetPhysicalMemory()
         {
             ulong GetPhysicalMemory = 0;
@@ -675,7 +688,7 @@ int timeout =10;
             return SetPageFileSize;
         }
 
-#region Principal Function
+        #region Principal Function
         //https://wiki.plecko.hr/doku.php?id=windows:ad:ad.net
         //private string sDomain = "test.com";
         //private string sDefaultOU = "OU=Test Users,OU=Test,DC=test,DC=com";
@@ -750,7 +763,7 @@ int timeout =10;
             PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain, Service_domain);
             return oPrincipalContext;
         }
-#endregion
+        #endregion
         public static bool IsAdministrator()
         {
             WindowsIdentity identity = WindowsIdentity.GetCurrent();
@@ -780,6 +793,71 @@ int timeout =10;
                 __Error = ex.ToString();
             }
             return GetProcessOwner;
+        }
+        static void ReadAllSettings()
+        {
+            try
+            {
+                var appSettings = ConfigurationManager.AppSettings;
+
+                if (appSettings.Count == 0)
+                {
+                    Console.WriteLine("AppSettings is empty.");
+                }
+                else
+                {
+                    foreach (var key in appSettings.AllKeys)
+                    {
+                        Console.WriteLine("Key: {0} Value: {1}", key, appSettings[key]);
+                    }
+                }
+            }
+            catch (ConfigurationErrorsException)
+            {
+                Console.WriteLine("Error reading app settings");
+            }
+        }
+        static void ReadSetting(string key)
+        {
+            try
+            {
+                var appSettings = ConfigurationManager.AppSettings;
+                string result = appSettings[key] ?? "Not Found";
+                Console.WriteLine(result);
+            }
+            catch (ConfigurationErrorsException)
+            {
+                Console.WriteLine("Error reading app settings");
+            }
+        }
+        public static bool SendMail()
+        {
+            bool SendMail = false;
+            string server = "asdf";
+            string to = "jane@sof.com";
+            string from = "ben@sof.com";
+            MailMessage message = new MailMessage(from, to);
+            message.Subject = "Using the new SMTP client.";
+            message.Body = @"Using this new feature, you can send an email message from an application very easily.";
+            SmtpClient client = new SmtpClient(server);
+            // Credentials are necessary if the server requires the client
+            // to authenticate before it will send email on the client's behalf.
+            client.UseDefaultCredentials = true;
+            try
+            {
+                client.Send(message);
+                SendMail = true;
+            }
+            catch (Exception e)
+            {
+#if DEBUG
+                __Error = e.ToString();
+#else
+                __Error = e.Message;
+#endif
+            }
+            return SendMail;
+            
         }
     }
 }
