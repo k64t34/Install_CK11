@@ -97,13 +97,17 @@ namespace Install_CK11
 
         public static string __Error;
         const string __root_CIMv2 = @"root\CIMV2";
+        #region Config 
         static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
         static string Distrib_Folder_Runtime = @"Runtimes";
         static string Distrib_Folder_CK11 = @"Дистрибутив клиента  СК-11";
-        static string Service_User = "Svc-ck11cl-oduyu";
-        //static string Service_User = "Mary";
-        static string Service_domain = "oduyu";
-        //static string Service_domain = "AK74";
+        static string autoinstaller_CK11= "AutoInstall CK11.exe";
+        static string installer_CK11= "SetupClient.exe";
+        static string Service_User = "Svc-ck11cl-oduyu";        
+        static string Service_domain = "oduyu";        
+        static string MailServer="";
+        static string emailOikAdmin="";
+        #endregion
         static string Hostname;
         static string LocalAdministratorsGroup = null;
         static ulong minPhysicalMemory = 6144;
@@ -111,8 +115,7 @@ namespace Install_CK11
         static int hr_count = 60;
         static ConsoleKeyInfo anwer ;
         static void Main(string[] args)
-        {
-            //ReadAllSettings();Console.ReadKey();return;
+        {            
             Console.BackgroundColor = ConsoleColor.Black; Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
@@ -129,6 +132,18 @@ namespace Install_CK11
             //string ScriptFullPathName = Application.ExecutablePath;
             //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);                        
             Hostname = Environment.MachineName;//Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
+            #region Read setting
+            ReadSetting("Distrib_Folder", ref Distrib_Folder);            
+            ReadSetting("Distrib_Folder_Runtime", ref Distrib_Folder_Runtime);
+            ReadSetting("Distrib_Folder_CK11", ref Distrib_Folder_CK11);
+            ReadSetting("autoinstaller_CK11", ref autoinstaller_CK11);
+            ReadSetting("installer_CK11", ref installer_CK11);
+            ReadSetting("Service_User", ref Service_User);
+            ReadSetting("Service_domain", ref Service_domain);
+            ReadSetting("MailServer", ref MailServer);
+            ReadSetting("emailOikAdmin", ref emailOikAdmin);            
+            #endregion 
+
             #region Check OS            
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Имя компьютера {0} ", Hostname);
@@ -161,8 +176,8 @@ namespace Install_CK11
             OSInfo OS = new OSInfo();
             Console.Write(OS.Info() + " ");
             if (OS.Compare(OSrequire)) PrintOK(); else PrintWarn("ОС не соответсвует требованиям");
-
-
+            #endregion
+            #region Check Admin right and restart process
             //TODO:Проверка что текущий пользователь член группу локлаьных админов
             String ProcessOwner = String.Empty;
             Console.ForegroundColor = ConsoleColor.White;
@@ -179,8 +194,11 @@ namespace Install_CK11
                 Console.Write("Попытка перезапустить программу от имени Администратора...");
                 try
                 {
+#if !DEBUG 
                     Process.Start(proc);
+#endif 
                     PrintOK();
+#if !DEBUG 
                     IntPtr hwind = GetConsoleWindow();
                     if (hwind != IntPtr.Zero)
                     {
@@ -188,6 +206,7 @@ namespace Install_CK11
                     }
                     ScriptFinish(true);
                     return;
+#endif 
                 }
                 catch
                 {
@@ -195,6 +214,7 @@ namespace Install_CK11
                 }
 
             }
+           
             #endregion
 
             #region Add Service User
@@ -379,9 +399,10 @@ namespace Install_CK11
                     useFolderTMP = false;
                 }
             #endregion
+            #region Run INSTALL OIK
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Запуск программы установки ОИК СК-11");
-            if (RunExe(Distrib_Folder + @"autoinstall\AutoInstall CK11.exe", useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11) == 0)
+            if (RunExe(Distrib_Folder + @"\autoinstall\"+autoinstaller_CK11, useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11) == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
             if (Directory.Exists(FolderTMP))
@@ -389,7 +410,9 @@ namespace Install_CK11
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.Write("Удаление временной папки");
                 Directory.Delete(FolderTMP, true);
+                if (Directory.Exists(FolderTMP)) PrintFail(); else PrintOK();
             }
+            #endregion
             Console.Write("\a");
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("\n\n\n\aОтправить администратору ОИК сообщение об установленном клиенте на этом ПК (Y/N)");
@@ -681,7 +704,7 @@ int timeout =10;
             try
             {
                 RegistryKey rk = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management", true);
-                rk.SetValue("PagingFiles", new string[] { String.Format("{0}:\\pagefile.sys {1} {2}", "c:", PageFileInitialSize, PageFileMaximumSize) },
+                rk.SetValue("PagingFiles", new string[] { String.Format("{0}\\pagefile.sys {1} {2}", "c:", PageFileInitialSize, PageFileMaximumSize) },
                     RegistryValueKind.MultiString);
                 SetPageFileSize = true;
             }
@@ -819,17 +842,22 @@ int timeout =10;
                 Console.WriteLine("Error reading app settings");
             }
         }
-        static void ReadSetting(string key)
+        static void ReadSetting(string key,ref string variable)
         {
             try
             {
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.Write(key); Console.Write(" ");
                 var appSettings = ConfigurationManager.AppSettings;
-                string result = appSettings[key] ?? "Not Found";
-                Console.WriteLine(result);
+                if (appSettings[key]==null) throw new Exception();
+                variable = appSettings[key];
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine(variable);
             }
-            catch (ConfigurationErrorsException)
+            catch /*(ConfigurationErrorsException)*/
             {
-                Console.WriteLine("Error reading app settings");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(variable);
             }
         }
         public static bool SendMail()
