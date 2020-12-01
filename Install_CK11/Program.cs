@@ -289,9 +289,11 @@ namespace Install_CK11
                 PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2015-2019 ");
-            /*if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
+#if !DEBUG
+            if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
                 PrintOK();
-            else { PrintFail(); Console.WriteLine(__Error); }*/
+            else { PrintFail(); Console.WriteLine(__Error); }
+#endif 
             #region Check .NET
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка версии .NET ");
