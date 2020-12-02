@@ -115,8 +115,36 @@ namespace Install_CK11
         static int hr_count = 60;
         static ConsoleKeyInfo anwer ;
         static void Main(string[] args)
-        {            
-            Console.BackgroundColor = ConsoleColor.Black; Console.Clear();
+        {
+            /*Console.ForegroundColor = ConsoleColor.DarkGray;//http://foxtools.ru/AscArt
+            Console.WriteLine(@"					-+@@%%%                              ");
+            Console.WriteLine(@"			   :%%%%%%%%%%%                              ");
+            Console.WriteLine(@"			+%%%%%%@+.                                   ");
+            Console.WriteLine(@"		  @%%%=@-                                        ");
+            Console.WriteLine(@"		%=%%%:           +                               ");
+            Console.WriteLine(@"	  *%%%%-           .--                               ");
+            Console.WriteLine(@"    =%%%.     -   :* +:..       .:++:.                   ");
+            Console.WriteLine(@"  .%%%=      *: - .:- *-* .-:* = .:++:-.--.            "  );
+            Console.WriteLine(@" %%%@       -***:  - -*.    .:- .-.- *+-"  );
+            Console.WriteLine(@"  %%%=       ...:+ *::**      :*:::- -:-               ");
+            Console.WriteLine(@"  %%%*        ...  .*+: *-  ..-.++-  -..:.             ");
+            Console.WriteLine(@"  %%%*     -.:++: *-.+*.*- :=.*-+:.+ *--..:*:          ");
+            Console.WriteLine(@"  %%%%         -*+ *+.+*-+-*-*.*:-*-.:+*   .--*        ");
+            Console.WriteLine(@"  =%%%  .-**+:. -** =*+.*:*+ ++-** :...                ");
+            Console.WriteLine(@"   %%%%    -::..  -*+ .+* +* +++  *++:..               ");
+            Console.WriteLine(@"   *=%%+         .-..:++-.   -+*:.-: .*.               ");
+            Console.WriteLine(@"	%%%%+            .-:*+  .-:***     *                 ");
+            Console.WriteLine(@"	 +%%%@         -+:..   *  ..::                       ");
+            Console.WriteLine(@"	  .%%=%=      .-         .*-                         ");
+            Console.WriteLine(@"		+%%%%@                +*                         ");
+            Console.WriteLine(@"		  *%%%%%%-                                       ");
+            Console.WriteLine(@"			 %=%%%%%%=*.                                 ");
+            Console.WriteLine(@"				-@%%%%%%%%%                              ");
+            Console.WriteLine(@"					  .+%%%.                             ");
+            Console.SetCursorPosition(0, 0);
+            Console.Read();*/
+
+            Console.BackgroundColor = ConsoleColor.Black; //Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -132,6 +160,10 @@ namespace Install_CK11
             //string ScriptFullPathName = Application.ExecutablePath;
             //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);                        
             Hostname = Environment.MachineName;//Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
+
+           
+
+
             #region Read setting
             ReadSetting("Distrib_Folder", ref Distrib_Folder);            
             ReadSetting("Distrib_Folder_Runtime", ref Distrib_Folder_Runtime);
@@ -313,7 +345,8 @@ namespace Install_CK11
             if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
-#endif 
+#endif
+            #endregion
             #region Check .NET
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка версии .NET ");
@@ -361,7 +394,7 @@ namespace Install_CK11
                 }
                 else { PrintFail(); Console.WriteLine(__Error); }
             }
-            #endregion
+           
 
             #endregion
             #region Copy distrub
@@ -401,8 +434,11 @@ namespace Install_CK11
             #endregion
             #region Run INSTALL OIK
             Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Запуск программы установки ОИК СК-11");
-            if (RunExe(Distrib_Folder + @"\autoinstall\"+autoinstaller_CK11, useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11) == 0)
+           
+            autoinstaller_CK11=Distrib_Folder + @"\autoinstall\" + autoinstaller_CK11;
+            Console.Write("Запуск программы установки ОИК СК-11 "+autoinstaller_CK11);
+            string Param_autoinstaller_CK11 = "\""+(useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11)+ "\" \""+ installer_CK11+"\"";
+            if (RunExe(autoinstaller_CK11, Param_autoinstaller_CK11) == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
             if (Directory.Exists(FolderTMP))
@@ -443,6 +479,7 @@ namespace Install_CK11
             try
             {
                 Process = Process.Start(ProcessInfo);
+                Console.CursorVisible = false;
                 while (!Process.WaitForExit(1000))
                 {
                     cMsg = String.Format("{0} {1} сек", cProgress[cIndex++], cSeconds++);
@@ -463,6 +500,7 @@ namespace Install_CK11
                 __Error = e.Message;
 #endif
             }
+            Console.CursorVisible = true;
             return RunExe;
         }
         public static bool DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
