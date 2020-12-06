@@ -115,35 +115,7 @@ namespace Install_CK11
         static int hr_count = 60;
         static ConsoleKeyInfo anwer ;
         static void Main(string[] args)
-        {
-            /*Console.ForegroundColor = ConsoleColor.DarkGray;//http://foxtools.ru/AscArt
-            Console.WriteLine(@"					-+@@%%%                              ");
-            Console.WriteLine(@"			   :%%%%%%%%%%%                              ");
-            Console.WriteLine(@"			+%%%%%%@+.                                   ");
-            Console.WriteLine(@"		  @%%%=@-                                        ");
-            Console.WriteLine(@"		%=%%%:           +                               ");
-            Console.WriteLine(@"	  *%%%%-           .--                               ");
-            Console.WriteLine(@"    =%%%.     -   :* +:..       .:++:.                   ");
-            Console.WriteLine(@"  .%%%=      *: - .:- *-* .-:* = .:++:-.--.            "  );
-            Console.WriteLine(@" %%%@       -***:  - -*.    .:- .-.- *+-"  );
-            Console.WriteLine(@"  %%%=       ...:+ *::**      :*:::- -:-               ");
-            Console.WriteLine(@"  %%%*        ...  .*+: *-  ..-.++-  -..:.             ");
-            Console.WriteLine(@"  %%%*     -.:++: *-.+*.*- :=.*-+:.+ *--..:*:          ");
-            Console.WriteLine(@"  %%%%         -*+ *+.+*-+-*-*.*:-*-.:+*   .--*        ");
-            Console.WriteLine(@"  =%%%  .-**+:. -** =*+.*:*+ ++-** :...                ");
-            Console.WriteLine(@"   %%%%    -::..  -*+ .+* +* +++  *++:..               ");
-            Console.WriteLine(@"   *=%%+         .-..:++-.   -+*:.-: .*.               ");
-            Console.WriteLine(@"	%%%%+            .-:*+  .-:***     *                 ");
-            Console.WriteLine(@"	 +%%%@         -+:..   *  ..::                       ");
-            Console.WriteLine(@"	  .%%=%=      .-         .*-                         ");
-            Console.WriteLine(@"		+%%%%@                +*                         ");
-            Console.WriteLine(@"		  *%%%%%%-                                       ");
-            Console.WriteLine(@"			 %=%%%%%%=*.                                 ");
-            Console.WriteLine(@"				-@%%%%%%%%%                              ");
-            Console.WriteLine(@"					  .+%%%.                             ");
-            Console.SetCursorPosition(0, 0);
-            Console.Read();*/
-
+        {           
             Console.BackgroundColor = ConsoleColor.Black; //Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
@@ -161,9 +133,13 @@ namespace Install_CK11
             //String ScriptFolder = Path.GetDirectoryName(ScriptFullPathName);                        
             Hostname = Environment.MachineName;//Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
 
-           
-
-
+            #region Check CK-11 is installed
+            if (IsCK11Installed())
+            {
+                PrintWarn("Клиент СК-11 уже установлен на этом ПК");
+            }
+            
+            #endregion 
             #region Read setting
             ReadSetting("Distrib_Folder", ref Distrib_Folder);            
             ReadSetting("Distrib_Folder_Runtime", ref Distrib_Folder_Runtime);
@@ -438,6 +414,9 @@ namespace Install_CK11
             autoinstaller_CK11=Distrib_Folder + @"\autoinstall\" + autoinstaller_CK11;
             Console.Write("Запуск программы установки ОИК СК-11 "+autoinstaller_CK11);
             string Param_autoinstaller_CK11 = "\""+(useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11)+ "\" \""+ installer_CK11+"\"";
+#if DEBUG
+            Console.Write("\n{0} ", Param_autoinstaller_CK11);
+#endif
             if (RunExe(autoinstaller_CK11, Param_autoinstaller_CK11) == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
@@ -445,24 +424,33 @@ namespace Install_CK11
             {
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.Write("Удаление временной папки");
-                Directory.Delete(FolderTMP, true);
+                try
+                {
+                    Directory.Delete(FolderTMP, true);
+                }
+                catch { }
                 if (Directory.Exists(FolderTMP)) PrintFail(); else PrintOK();
             }
-            #endregion
-            Console.Write("\a");
+#endregion
+#region Send email
+            //Console.Write("\a");
+            //Console.ForegroundColor = ConsoleColor.Yellow;
+            //Console.Write("\n\n\n\aОтправить администратору ОИК сообщение об установленном клиенте на этом ПК (Y/N)");
+            //anwer = Console.ReadKey();
+            //if (anwer.KeyChar == 121 || anwer.KeyChar == 89)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.White;
+            //    Console.Write("\nОтправка сообщения");
+            //    if (SendMail()) PrintOK();
+            //    else { PrintFail(); Console.WriteLine(__Error); }
+            //}
+#endregion
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write("\n\n\n\aОтправить администратору ОИК сообщение об установленном клиенте на этом ПК (Y/N)");
-            anwer = Console.ReadKey();
-            if (anwer.KeyChar == 121 || anwer.KeyChar == 89)
-            {
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write("\nОтправка сообщения");
-                if (SendMail()) PrintOK();
-                else { PrintFail(); Console.WriteLine(__Error); }
-            }
+            Console.Write("\n\n\n\aРабота скрипта завершена\n\n\n");
             ScriptFinish(true);
         }
 
+        //********************************************************
         static public int RunExe(string pProcessPath, string args)
         {
             int RunExe = -1;
@@ -475,22 +463,24 @@ namespace Install_CK11
             int cIndex = 0;
             int cCount = cProgress.Length;
             int cSeconds = 0;
-            string cMsg;
+            string cMsg="";
             try
             {
                 Process = Process.Start(ProcessInfo);
                 Console.CursorVisible = false;
                 while (!Process.WaitForExit(1000))
                 {
+                    Console.Write(new string('\b', cMsg.Length));
                     cMsg = String.Format("{0} {1} сек", cProgress[cIndex++], cSeconds++);
                     Console.Write(cMsg);
                     if (cIndex == cCount) cIndex = 0;
-                    Console.Write(new string('\b', cMsg.Length));
+                    //Console.Write(new string('\b', cMsg.Length));
                 }
+                
 #if DEBUG
                 Console.Write("\nExitCode={0} ", Process.ExitCode);
 #endif
-                RunExe = 0;
+                RunExe = Process.ExitCode;
             }
             catch (Exception e)
             {
@@ -571,7 +561,7 @@ int timeout =10;
             }
             Environment.Exit(1);
         }
-        #region GetLocalAdminGroup ver 1
+#region GetLocalAdminGroup ver 1
         //*******************************************
         static public bool WMIGetLocalAdminGroup(ref string group)
         //*******************************************
@@ -598,8 +588,8 @@ int timeout =10;
             }
             return (GetLocalAdminGroup);
         }
-        #endregion
-        #region GetLocalAdminGroup ver 2
+#endregion
+#region GetLocalAdminGroup ver 2
         static public bool GetLocalAdminGroup2(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -618,8 +608,8 @@ int timeout =10;
 
             return (GetLocalAdminGroup);
         }
-        #endregion
-        #region GetLocalAdminGroup ver 3
+#endregion
+#region GetLocalAdminGroup ver 3
         static public bool GetLocalAdminGroup3(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -635,7 +625,7 @@ int timeout =10;
             catch (Exception e) { __Error = "GetLocalAdminGroup()" + e.ToString(); }
             return (GetLocalAdminGroup);
         }
-        #endregion
+#endregion
         //****************************************************
         static public bool IsUserInLocalGrooup(ref String User, ref String Group, String Domain)
         {
@@ -751,7 +741,7 @@ int timeout =10;
             return SetPageFileSize;
         }
 
-        #region Principal Function
+#region Principal Function
         //https://wiki.plecko.hr/doku.php?id=windows:ad:ad.net
         //private string sDomain = "test.com";
         //private string sDefaultOU = "OU=Test Users,OU=Test,DC=test,DC=com";
@@ -826,7 +816,7 @@ int timeout =10;
             PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain, Service_domain);
             return oPrincipalContext;
         }
-        #endregion
+#endregion
         public static bool IsAdministrator()
         {
             WindowsIdentity identity = WindowsIdentity.GetCurrent();
@@ -838,7 +828,7 @@ int timeout =10;
             bool GetProcessOwner = false;
             try
             {
-                ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT  *FROM Win32_Process WHERE Handle=\"" + System.Diagnostics.Process.GetCurrentProcess().Id.ToString() + "\"");
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT  * FROM Win32_Process WHERE Handle=\"" + System.Diagnostics.Process.GetCurrentProcess().Id.ToString() + "\"");
                 foreach (ManagementObject process in searcher.Get())
                 {
                     string[] argList = new string[] { string.Empty, string.Empty };
@@ -901,8 +891,8 @@ int timeout =10;
         public static bool SendMail()
         {
             bool SendMail = false;
-            string server = "asdf";
-            string to = "jane@sof.com";
+            string server = "mail";
+            string to = "skorikoff@yug.so-ups.ru";
             string from = "ben@sof.com";
             MailMessage message = new MailMessage(from, to);
             message.Subject = "Using the new SMTP client.";
@@ -925,7 +915,31 @@ int timeout =10;
 #endif
             }
             return SendMail;
-            
+        }
+        public static bool IsCK11Installed()
+        {
+            bool IsCK11Installed = false;//SELECT* FROM Win32_InstalledWin32Program WHERE(Name LIKE  '%СК-11%' AND Vendor LIKE '%Монитор Электрик%')
+            try
+            {
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher(
+                "SELECT Name FROM Win32_InstalledWin32Program WHERE (Name LIKE  '%СК-11%' AND Vendor LIKE '%Монитор Электрик%')");
+                //"SELECT * FROM Win32_InstalledWin32Program WHERE(Name LIKE  \"%СК-11%\" AND Vendor LIKE \"%Монитор Электрик%\"");
+                //"SELECT  * FROM Win32_Process WHERE Handle=\"" + System.Diagnostics.Process.GetCurrentProcess().Id.ToString() + "\"");
+                foreach (ManagementObject process in searcher.Get())
+                {
+                    IsCK11Installed = true;
+                    break;
+                }
+            }
+            catch (Exception e)
+            {
+#if DEBUG
+                __Error = e.ToString();
+#else
+                __Error = e.Message;
+#endif
+            }
+            return IsCK11Installed;          
         }
     }
 }
