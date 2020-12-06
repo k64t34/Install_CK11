@@ -693,12 +693,27 @@ int timeout =10;
             bool AddUserToLocalGrooup = false;
             try
             {
-                PrincipalContext M = new PrincipalContext(ContextType.Machine, Hostname);
-                GroupPrincipal G = GroupPrincipal.FindByIdentity(M, Group);
-                G.Members.Add(M, IdentityType.Name, domain + @"\" + User);
-                G.Save();
-                G.Dispose();
-                AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
+                PrincipalContext M = new PrincipalContext(ContextType.Machine);
+                if (M == null) { __Error = "Не удалось подключиться к локальному списку пользователей"; }
+                else
+                {
+                    GroupPrincipal G = GroupPrincipal.FindByIdentity(M, IdentityType.Sid, "BA");//https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-strings
+                    if (G == null) {  __Error = "Не удалось подключиться к группе локальных администраторов"; } 
+                    else
+                    {
+                        PrincipalContext D = new PrincipalContext(ContextType.Domain,domain);
+                        if (D == null) { __Error = "Не удалось подключиться к домену"; }
+                        else
+                        {
+                            //G.Members.Add(D, IdentityType.SamAccountName, "User123");
+                            //G.Members.Add(D, IdentityType.Name, domain + "\\" + User);
+                            G.Members.Add(D, IdentityType.Name, User);
+                            G.Save();
+                            G.Dispose();
+                            AddUserToLocalGrooup = IsUserInLocalGrooup(ref User, ref Group, domain);
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
