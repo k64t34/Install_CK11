@@ -962,34 +962,6 @@ int timeout =10;
 
 
 
-
-
-
-
-
-
-/*title = "Ну удалось определить встроенную группа локаьных администраторов\nIdentityNotMappedException\nSystem.Security.Principal.IdentityNotMappedException: Некоторые или ссылки на свойства нельзя преобразовать.\n   в System.Security.Principal.SecurityIdentifier.Translate(IdentityReferenceCollection sourceSids, Type targetType, Boolean forceSuccess)\n   в System.Security.Principal.SecurityIdentifier.Translate(Type targetType)\n   в Install_CK11.Program.GetLocalAdminGroup(String & group) в Program.cs:строка 186";
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.DarkRed;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.DarkMagenta;
-            Console.WriteLine(title);
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine(title);*/
-
-
-
 /*
  Справочные данный
 WinNT ADsPath   https://docs.microsoft.com/en-us/windows/win32/adsi/winnt-adspath 
