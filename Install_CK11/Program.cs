@@ -134,11 +134,10 @@ namespace Install_CK11
             Hostname = Environment.MachineName;//Hostname = Environment.GetEnvironmentVariable("COMPUTERNAME");
 
             #region Check CK-11 is installed
-            if (IsCK11Installed())
-            {
-                PrintWarn("Клиент СК-11 уже установлен на этом ПК");
-            }
-            
+            //if (IsCK11Installed())
+            //{
+            //    PrintWarn("Клиент СК-11 уже установлен на этом ПК");
+            //}            
             #endregion 
             #region Read setting
             ReadSetting("Distrib_Folder", ref Distrib_Folder);            
@@ -937,11 +936,13 @@ int timeout =10;
             try
             {
                 ManagementObjectSearcher searcher = new ManagementObjectSearcher(
-                "SELECT Name FROM Win32_InstalledWin32Program WHERE (Name LIKE  '%СК-11%' AND Vendor LIKE '%Монитор Электрик%')");
+                "SELECT * FROM Win32_InstalledWin32Program WHERE (Name LIKE  '%СК-11%' AND Vendor LIKE '%Монитор Электрик%')");
                 //"SELECT * FROM Win32_InstalledWin32Program WHERE(Name LIKE  \"%СК-11%\" AND Vendor LIKE \"%Монитор Электрик%\"");
                 //"SELECT  * FROM Win32_Process WHERE Handle=\"" + System.Diagnostics.Process.GetCurrentProcess().Id.ToString() + "\"");
-                foreach (ManagementObject process in searcher.Get())
+                foreach (ManagementObject app in searcher.Get())
                 {
+
+                    //Console.WriteLine("Name = {0} Vendor = {1]",app["Name"].ToString(), app["Vendor"].ToString());
                     IsCK11Installed = true;
                     break;
                 }
