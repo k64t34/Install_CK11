@@ -20,6 +20,7 @@ using System.DirectoryServices.ActiveDirectory;
 using System.DirectoryServices.AccountManagement;
 using System.Data;
 using System.Configuration;
+
 namespace Install_CK11
 {
     #region    class OSInfo
@@ -114,6 +115,7 @@ namespace Install_CK11
         const char hr_char = '─';
         static int hr_count = 60;
         static ConsoleKeyInfo anwer ;
+        static string FolderCK11;        
         static void Main(string[] args)
         {           
             Console.BackgroundColor = ConsoleColor.Black; //Console.Clear();
@@ -297,10 +299,6 @@ namespace Install_CK11
                 if (SetPageFileSize(PageFileInitialSize, PageFileMaximumSize)) PrintOK(); else { PrintFail(); Console.ForegroundColor = ConsoleColor.DarkGray; Console.WriteLine(__Error); }
             }
             #endregion
-
-
-            #region Install Runtime            
-            Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR(); Console.ForegroundColor = ConsoleColor.White;
             #region Check Distrib Folder
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка папки дистрибутивов {0} ...", Distrib_Folder);
@@ -310,18 +308,6 @@ namespace Install_CK11
             PrintOK();
 
             #endregion
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Установка VC2010 ");
-            if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)
-                PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Установка VC2015-2019 ");
-#if !DEBUG
-            if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
-                PrintOK();
-            else { PrintFail(); Console.WriteLine(__Error); }
-#endif
-            #endregion
             #region Check .NET
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка версии .NET ");
@@ -330,7 +316,8 @@ namespace Install_CK11
             {
                 _NET_VERSION = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full", "Version", String.Empty);
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
 #if DEBUG
                 __Error = e.ToString();
 #else
@@ -369,9 +356,26 @@ namespace Install_CK11
                 }
                 else { PrintFail(); Console.WriteLine(__Error); }
             }
-           
+
 
             #endregion
+
+            #region Install Runtime            
+            Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR(); Console.ForegroundColor = ConsoleColor.White;
+           
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write("Установка VC2010 ");
+            if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)
+                PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write("Установка VC2015-2019 ");
+#if !DEBUG
+            if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
+                PrintOK();
+            else { PrintFail(); Console.WriteLine(__Error); }
+#endif
+            #endregion
+           
             #region Copy distrub
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Копирование дистрибутива ");
@@ -430,8 +434,8 @@ namespace Install_CK11
                 catch { }
                 if (Directory.Exists(FolderTMP)) PrintFail(); else PrintOK();
             }
-#endregion
-#region Send email
+            #endregion
+            #region Send email
             //Console.Write("\a");
             //Console.ForegroundColor = ConsoleColor.Yellow;
             //Console.Write("\n\n\n\aОтправить администратору ОИК сообщение об установленном клиенте на этом ПК (Y/N)");
@@ -443,7 +447,26 @@ namespace Install_CK11
             //    if (SendMail()) PrintOK();
             //    else { PrintFail(); Console.WriteLine(__Error); }
             //}
-#endregion
+            #endregion
+
+            #region JSON
+            PrintHR();
+            int MemHeapSize = 4096;
+            Console.WriteLine("Установка MemHeapSize {0}", MemHeapSize);
+            string CK11_JSON = @"c:\ProgramData\Monitel\CK - 11\PlatformSettings.json";
+            if (!File.Exists(CK11_JSON))
+            {
+                Console.Write("Файл \"{0}\" не найден! ", CK11_JSON); PrintFail();
+            }
+            else
+            {
+            //https://www.newtonsoft.com/json/help/html/ReadingWritingJSON.htm
+
+
+            }
+            //"Mal" "malMemHeapSizeLocal": 4096            
+            #endregion
+
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("\n\n\n\aРабота скрипта завершена\n\n\n");
             ScriptFinish(true);
@@ -735,9 +758,9 @@ int timeout =10;
                 GetPhysicalMemory += Convert.ToUInt64(obj["Capacity"].ToString()) >> 20;
             return GetPhysicalMemory;
         }
-        static void PrintOK() { Console.BackgroundColor = ConsoleColor.Green; Console.ForegroundColor = ConsoleColor.White; Console.WriteLine(" OK "); Console.ResetColor(); }
-        static void PrintFail() { Console.BackgroundColor = ConsoleColor.Red; Console.ForegroundColor = ConsoleColor.White; Console.WriteLine(" СБОЙ "); Console.ResetColor(); }
-        static void PrintWarn(string Msg) { Console.BackgroundColor = ConsoleColor.Yellow; Console.ForegroundColor = ConsoleColor.Black; Console.WriteLine(Msg); Console.ResetColor(); }
+        static void PrintOK() { Console.BackgroundColor = ConsoleColor.Green; Console.ForegroundColor = ConsoleColor.White; Console.Write(" OK "); Console.ResetColor(); Console.WriteLine("."); }
+        static void PrintFail() { Console.BackgroundColor = ConsoleColor.Red; Console.ForegroundColor = ConsoleColor.White; Console.Write(" СБОЙ "); Console.ResetColor(); Console.WriteLine("."); }
+        static void PrintWarn(string Msg) { Console.BackgroundColor = ConsoleColor.Yellow; Console.ForegroundColor = ConsoleColor.Black; Console.Write(Msg); Console.ResetColor(); Console.WriteLine("."); }
         static void PrintHR() { Console.WriteLine(new string(hr_char, hr_count)); }
         static public bool SetPageFileSize(ulong PageFileInitialSize, ulong PageFileMaximumSize)
         {
