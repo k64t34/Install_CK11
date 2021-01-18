@@ -369,13 +369,62 @@ namespace Install_CK11
                 PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2015-2019 ");
-#if !DEBUG
+#if DEBUG
+            PrintOK();
+#else
             if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2015-2019_redist.x64.exe", "/install /passive /norestart") == 0)
                 PrintOK();
             else { PrintFail(); Console.WriteLine(__Error); }
 #endif
             #endregion
-           
+            #region MemHeapSize            
+            int MemHeapSize = 4096;
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write("Установка MemHeapSize {0} ", MemHeapSize);                
+            string Folder_CK11_JSON = Environment.GetEnvironmentVariable("ALLUSERSPROFILE") + @"\Monitel\CK - 11";
+            if (!Directory.Exists(Folder_CK11_JSON))
+            {
+                try
+                {                    
+                    Directory.CreateDirectory(Folder_CK11_JSON);
+                    Console.Write("\tСоздана папка хранения конфигурации СК11 \"" + Folder_CK11_JSON+"\"");                    
+                }
+                catch (Exception e)
+                {
+#if DEBUG
+                    __Error = e.ToString();
+#else
+            __Error = e.Message;
+#endif
+                    PrintFail();
+                    Console.WriteLine("Не удалось создать  папку конфигурации СК11 \"" + Folder_CK11_JSON + "\"\n" + __Error);
+                }
+            }
+            if (Directory.Exists(Folder_CK11_JSON)) // JSON read/write interface https://www.newtonsoft.com/json/help/html/ReadingWritingJSON.htm
+            {
+                string File_CK11_JSON = Path.Combine(Folder_CK11_JSON, "PlatformSettings.json");
+                try
+                {                    
+                    string jsontext = string.Format("{{\n\"Mal\":\n{{\"malMemHeapSize\": {0}\n}}\n}}", MemHeapSize);
+                    StreamWriter sw = new StreamWriter(File_CK11_JSON, false);
+                    sw.WriteLine(jsontext);
+                    sw.Close();
+                    PrintOK();
+                }
+                catch (Exception e)
+                {
+#if DEBUG
+                    __Error = e.ToString();
+#else
+            __Error = e.Message;
+#endif
+                    PrintFail();
+                    Console.WriteLine("Не удалось установить MemHeapSize в файл \"" + File_CK11_JSON + "\"\n" + __Error);
+                }
+
+            }
+            #endregion
+
             #region Copy distrub
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Копирование дистрибутива ");
@@ -449,23 +498,7 @@ namespace Install_CK11
             //}
             #endregion
 
-            #region JSON
-            PrintHR();
-            int MemHeapSize = 4096;
-            Console.WriteLine("Установка MemHeapSize {0}", MemHeapSize);
-            string CK11_JSON = @"c:\ProgramData\Monitel\CK - 11\PlatformSettings.json";
-            if (!File.Exists(CK11_JSON))
-            {
-                Console.Write("Файл \"{0}\" не найден! ", CK11_JSON); PrintFail();
-            }
-            else
-            {
-            //https://www.newtonsoft.com/json/help/html/ReadingWritingJSON.htm
-
-
-            }
-            //"Mal" "malMemHeapSizeLocal": 4096            
-            #endregion
+            
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("\n\n\n\aРабота скрипта завершена\n\n\n");
