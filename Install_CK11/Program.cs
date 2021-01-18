@@ -377,17 +377,18 @@ namespace Install_CK11
             else { PrintFail(); Console.WriteLine(__Error); }
 #endif
             #endregion
-            #region MemHeapSize            
+            #region MemHeapSize    
+            /*
             int MemHeapSize = 4096;
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка MemHeapSize {0} ", MemHeapSize);                
-            string Folder_CK11_JSON = Environment.GetEnvironmentVariable("ALLUSERSPROFILE") + @"\Monitel\CK - 11";
+            string Folder_CK11_JSON = Environment.GetEnvironmentVariable("ALLUSERSPROFILE") + @"\Monitel\CK-11";
             if (!Directory.Exists(Folder_CK11_JSON))
             {
                 try
                 {                    
                     Directory.CreateDirectory(Folder_CK11_JSON);
-                    Console.Write("\tСоздана папка хранения конфигурации СК11 \"" + Folder_CK11_JSON+"\"");                    
+                    //Console.Write("\tСоздана папка хранения конфигурации СК11 \"" + Folder_CK11_JSON+"\"");                    
                 }
                 catch (Exception e)
                 {
@@ -422,7 +423,7 @@ namespace Install_CK11
                     Console.WriteLine("Не удалось установить MemHeapSize в файл \"" + File_CK11_JSON + "\"\n" + __Error);
                 }
 
-            }
+            }*/
             #endregion
 
             #region Copy distrub
