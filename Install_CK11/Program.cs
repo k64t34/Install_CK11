@@ -20,6 +20,7 @@ using System.DirectoryServices.ActiveDirectory;
 using System.DirectoryServices.AccountManagement;
 using System.Data;
 using System.Configuration;
+using System.Text.RegularExpressions;
 
 namespace Install_CK11
 {
@@ -102,22 +103,22 @@ namespace Install_CK11
         static string Distrib_Folder = @"\\fs2-oduyu\CK2007\СК-11\";
         static string Distrib_Folder_Runtime = @"Runtimes";
         static string Distrib_Folder_CK11 = @"Дистрибутив клиента  СК-11";
-        static string autoinstaller_CK11= "AutoInstall CK11.exe";
-        static string installer_CK11= "SetupClient.exe";
-        static string Service_User = "Svc-ck11cl-oduyu";        
-        static string Service_domain = "oduyu";        
-        static string MailServer="";
-        static string emailOikAdmin="";
+        static string autoinstaller_CK11 = "AutoInstall CK11.exe";
+        static string installer_CK11 = "SetupClient.exe";
+        static string Service_User = "Svc-ck11cl-oduyu";
+        static string Service_domain = "oduyu";
+        static string MailServer = "";
+        static string emailOikAdmin = "";
         #endregion
         static string Hostname;
         static string LocalAdministratorsGroup = null;
         static ulong minPhysicalMemory = 6144;
         const char hr_char = '─';
         static int hr_count = 60;
-        static ConsoleKeyInfo anwer ;
-        static string FolderCK11;        
+        static ConsoleKeyInfo anwer;
+        static string FolderCK11;
         static void Main(string[] args)
-        {           
+        {
             Console.BackgroundColor = ConsoleColor.Black; //Console.Clear();
             hr_count = Console.WindowWidth - 1;
             string title = "Автоматизированная установка клиента ОИК СК-11";
@@ -142,7 +143,7 @@ namespace Install_CK11
             //}            
             #endregion 
             #region Read setting
-            ReadSetting("Distrib_Folder", ref Distrib_Folder);            
+            ReadSetting("Distrib_Folder", ref Distrib_Folder);
             ReadSetting("Distrib_Folder_Runtime", ref Distrib_Folder_Runtime);
             ReadSetting("Distrib_Folder_CK11", ref Distrib_Folder_CK11);
             ReadSetting("autoinstaller_CK11", ref autoinstaller_CK11);
@@ -150,8 +151,8 @@ namespace Install_CK11
             ReadSetting("Service_User", ref Service_User);
             ReadSetting("Service_domain", ref Service_domain);
             ReadSetting("MailServer", ref MailServer);
-            ReadSetting("emailOikAdmin", ref emailOikAdmin);            
-            #endregion 
+            ReadSetting("emailOikAdmin", ref emailOikAdmin);
+            #endregion
 
             #region Check OS            
             Console.ForegroundColor = ConsoleColor.White;
@@ -223,7 +224,7 @@ namespace Install_CK11
                 }
 
             }
-           
+
             #endregion
 
             #region Add Service User
@@ -303,7 +304,7 @@ namespace Install_CK11
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Проверка папки дистрибутивов {0} ...", Distrib_Folder);
 #if !DEBUG
-            if (!Directory.Exists(Distrib_Folder)){Console.ForegroundColor = ConsoleColor.Red;Console.WriteLine("СБОЙ");ScriptFinish(true);}
+            if (!Directory.Exists(Distrib_Folder)) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("СБОЙ"); ScriptFinish(true); }
 #endif
             PrintOK();
 
@@ -321,7 +322,7 @@ namespace Install_CK11
 #if DEBUG
                 __Error = e.ToString();
 #else
-            __Error = e.Message;
+                __Error = e.Message;
 #endif
             }
             if (!String.IsNullOrEmpty(_NET_VERSION))
@@ -362,11 +363,12 @@ namespace Install_CK11
 
             #region Install Runtime            
             Console.ForegroundColor = ConsoleColor.DarkGray; PrintHR(); Console.ForegroundColor = ConsoleColor.White;
-           
+
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2010 ");
             if (RunExe(Distrib_Folder + "\\" + Distrib_Folder_Runtime + "\\" + @"VC2010_redist_x64.exe", "/install /passive /norestart") == 0)
-                PrintOK(); else { PrintFail(); Console.WriteLine(__Error); }
+                PrintOK();
+            else { PrintFail(); Console.WriteLine(__Error); }
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка VC2015-2019 ");
 #if DEBUG
@@ -377,54 +379,7 @@ namespace Install_CK11
             else { PrintFail(); Console.WriteLine(__Error); }
 #endif
             #endregion
-            #region MemHeapSize    
-            /*
-            int MemHeapSize = 4096;
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("Установка MemHeapSize {0} ", MemHeapSize);                
-            string Folder_CK11_JSON = Environment.GetEnvironmentVariable("ALLUSERSPROFILE") + @"\Monitel\CK-11";
-            if (!Directory.Exists(Folder_CK11_JSON))
-            {
-                try
-                {                    
-                    Directory.CreateDirectory(Folder_CK11_JSON);
-                    //Console.Write("\tСоздана папка хранения конфигурации СК11 \"" + Folder_CK11_JSON+"\"");                    
-                }
-                catch (Exception e)
-                {
-#if DEBUG
-                    __Error = e.ToString();
-#else
-            __Error = e.Message;
-#endif
-                    PrintFail();
-                    Console.WriteLine("Не удалось создать  папку конфигурации СК11 \"" + Folder_CK11_JSON + "\"\n" + __Error);
-                }
-            }
-            if (Directory.Exists(Folder_CK11_JSON)) // JSON read/write interface https://www.newtonsoft.com/json/help/html/ReadingWritingJSON.htm
-            {
-                string File_CK11_JSON = Path.Combine(Folder_CK11_JSON, "PlatformSettings.json");
-                try
-                {                    
-                    string jsontext = string.Format("{{\n\"Mal\":\n{{\"malMemHeapSize\": {0}\n}}\n}}", MemHeapSize);
-                    StreamWriter sw = new StreamWriter(File_CK11_JSON, false);
-                    sw.WriteLine(jsontext);
-                    sw.Close();
-                    PrintOK();
-                }
-                catch (Exception e)
-                {
-#if DEBUG
-                    __Error = e.ToString();
-#else
-            __Error = e.Message;
-#endif
-                    PrintFail();
-                    Console.WriteLine("Не удалось установить MemHeapSize в файл \"" + File_CK11_JSON + "\"\n" + __Error);
-                }
 
-            }*/
-            #endregion
 
             #region Copy distrub
             Console.ForegroundColor = ConsoleColor.White;
@@ -443,7 +398,7 @@ namespace Install_CK11
 #if DEBUG
                 __Error = e.ToString();
 #else
-            __Error = e.Message;
+                __Error = e.Message;
 #endif
                 PrintFail();
                 Console.WriteLine("Не удалось создать временную папку для копирования дистрибутива\n" + __Error);
@@ -463,10 +418,10 @@ namespace Install_CK11
             #endregion
             #region Run INSTALL OIK
             Console.ForegroundColor = ConsoleColor.White;
-           
-            autoinstaller_CK11=Distrib_Folder + @"\autoinstall\" + autoinstaller_CK11;
-            Console.Write("Запуск программы установки ОИК СК-11 "+autoinstaller_CK11);
-            string Param_autoinstaller_CK11 = "\""+(useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11)+ "\" \""+ installer_CK11+"\"";
+
+            autoinstaller_CK11 = Distrib_Folder + @"\autoinstall\" + autoinstaller_CK11;
+            Console.Write("Запуск программы установки ОИК СК-11 " + autoinstaller_CK11);
+            string Param_autoinstaller_CK11 = "\"" + (useFolderTMP ? FolderTMP : Distrib_Folder + "\\" + Distrib_Folder_CK11) + "\" \"" + installer_CK11 + "\"";
 #if DEBUG
             Console.Write("\n{0} ", Param_autoinstaller_CK11);
 #endif
@@ -485,6 +440,32 @@ namespace Install_CK11
                 if (Directory.Exists(FolderTMP)) PrintFail(); else PrintOK();
             }
             #endregion
+            #region MemHeapSize    
+
+            bool setMemHeapSize = false;
+            int MemHeapSize = 4096;
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write("Установка MemHeapSize {0} ", MemHeapSize);            
+            string File_CK11_JSON = Path.Combine(Environment.GetEnvironmentVariable("ALLUSERSPROFILE") + @"\Monitel\CK-11", "PlatformSettings.json");
+
+            int Timeout = 10;
+            while (!(Timeout > 0 || !File.Exists(File_CK11_JSON)))
+            {
+                Timeout--;
+                Thread.Sleep(1000);
+                Console.Write(".");
+            }
+
+            if (!File.Exists(File_CK11_JSON))
+            {
+                PrintWarn("Файл \"" + File_CK11_JSON + "\"не найден");
+            }
+            else // JSON read/write interface https://www.newtonsoft.com/json/help/html/ReadingWritingJSON.htm
+            {
+                if (SetJSONParameterValue(File_CK11_JSON, "malMemHeapSize", MemHeapSize.ToString())) PrintOK();
+                else PrintWarn("Не удалось установить MemHeapSize в файл \"" + File_CK11_JSON + "\"\n" + __Error);
+            }
+            #endregion
             #region Send email
             //Console.Write("\a");
             //Console.ForegroundColor = ConsoleColor.Yellow;
@@ -499,7 +480,7 @@ namespace Install_CK11
             //}
             #endregion
 
-            
+
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("\n\n\n\aРабота скрипта завершена\n\n\n");
@@ -519,7 +500,7 @@ namespace Install_CK11
             int cIndex = 0;
             int cCount = cProgress.Length;
             int cSeconds = 0;
-            string cMsg="";
+            string cMsg = "";
             try
             {
                 Process = Process.Start(ProcessInfo);
@@ -532,7 +513,7 @@ namespace Install_CK11
                     if (cIndex == cCount) cIndex = 0;
                     //Console.Write(new string('\b', cMsg.Length));
                 }
-                
+
 #if DEBUG
                 Console.Write("\nExitCode={0} ", Process.ExitCode);
 #endif
@@ -617,7 +598,7 @@ int timeout =10;
             }
             Environment.Exit(1);
         }
-#region GetLocalAdminGroup ver 1
+        #region GetLocalAdminGroup ver 1
         //*******************************************
         static public bool WMIGetLocalAdminGroup(ref string group)
         //*******************************************
@@ -644,8 +625,8 @@ int timeout =10;
             }
             return (GetLocalAdminGroup);
         }
-#endregion
-#region GetLocalAdminGroup ver 2
+        #endregion
+        #region GetLocalAdminGroup ver 2
         static public bool GetLocalAdminGroup2(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -664,8 +645,8 @@ int timeout =10;
 
             return (GetLocalAdminGroup);
         }
-#endregion
-#region GetLocalAdminGroup ver 3
+        #endregion
+        #region GetLocalAdminGroup ver 3
         static public bool GetLocalAdminGroup3(ref string group)
         {
             bool GetLocalAdminGroup = false;
@@ -681,7 +662,7 @@ int timeout =10;
             catch (Exception e) { __Error = "GetLocalAdminGroup()" + e.ToString(); }
             return (GetLocalAdminGroup);
         }
-#endregion
+        #endregion
         //****************************************************
         static public bool IsUserInLocalGrooup(ref String User, ref String Group, String Domain)
         {
@@ -754,10 +735,10 @@ int timeout =10;
                 else
                 {
                     GroupPrincipal G = GroupPrincipal.FindByIdentity(M, IdentityType.Sid, "BA");//https://docs.microsoft.com/en-us/windows/win32/secauthz/sid-strings
-                    if (G == null) {  __Error = "Не удалось подключиться к группе локальных администраторов"; } 
+                    if (G == null) { __Error = "Не удалось подключиться к группе локальных администраторов"; }
                     else
                     {
-                        PrincipalContext D = new PrincipalContext(ContextType.Domain,domain);
+                        PrincipalContext D = new PrincipalContext(ContextType.Domain, domain);
                         if (D == null) { __Error = "Не удалось подключиться к домену"; }
                         else
                         {
@@ -812,7 +793,7 @@ int timeout =10;
             return SetPageFileSize;
         }
 
-#region Principal Function
+        #region Principal Function
         //https://wiki.plecko.hr/doku.php?id=windows:ad:ad.net
         //private string sDomain = "test.com";
         //private string sDefaultOU = "OU=Test Users,OU=Test,DC=test,DC=com";
@@ -887,7 +868,7 @@ int timeout =10;
             PrincipalContext oPrincipalContext = new PrincipalContext(ContextType.Domain, Service_domain);
             return oPrincipalContext;
         }
-#endregion
+        #endregion
         public static bool IsAdministrator()
         {
             WindowsIdentity identity = WindowsIdentity.GetCurrent();
@@ -941,14 +922,14 @@ int timeout =10;
                 Console.WriteLine("Error reading app settings");
             }
         }
-        static void ReadSetting(string key,ref string variable)
+        static void ReadSetting(string key, ref string variable)
         {
             try
             {
                 Console.ForegroundColor = ConsoleColor.Gray;
                 Console.Write(key); Console.Write(" ");
                 var appSettings = ConfigurationManager.AppSettings;
-                if (appSettings[key]==null) throw new Exception();
+                if (appSettings[key] == null) throw new Exception();
                 variable = appSettings[key];
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.WriteLine(variable);
@@ -1012,7 +993,55 @@ int timeout =10;
                 __Error = e.Message;
 #endif
             }
-            return IsCK11Installed;          
+            return IsCK11Installed;
+        }
+        //************************************
+        public static bool SetJSONParameterValue(String File, String ParameterName, String newParameterValue)        {
+            // 0  ...   S-1 | S    .......          |,| ..............
+            //               _______ L _________ 
+            //
+            //              S .... |:|  old_value
+            //              ___v ___
+            //
+            // 0  ...    S-1| S    |:| new_value    |,| S+L+1 .......
+            bool result = false;
+            try
+            {
+                StreamReader sr = new StreamReader(File);                
+                string input = sr.ReadToEnd();
+                sr.Close();
+                string pattern = @""" *" + ParameterName + @" *"" *: *. *[,}]";
+                Match m1 = Regex.Match(input, pattern);
+                if (m1.Success)
+                {
+                    pattern = @""" *" + ParameterName + @" *"" *:";
+                    Match m2 = Regex.Match(m1.Value, pattern);
+                    if (m2.Success)
+                    {
+                        string newValue =
+                            input.Substring(0, m1.Index + m2.Length)
+                            +
+                            " " + newParameterValue
+                            +
+                            input.Substring(m1.Index + m1.Length - 1);
+                        StreamWriter sw = new StreamWriter(File, false);
+                        sw.Write(newValue);
+                        sw.Close();
+                        result = true;
+                    }
+                    else  { __Error = "Значение поля " + ParameterName + "не найдено"; }
+                }
+                else { __Error = "Поле " + ParameterName + "не найдено"; }
+            }
+            catch (Exception e)
+            {
+#if DEBUG
+                __Error = e.ToString();
+#else
+                __Error = e.Message;
+#endif
+            }
+            return result;
         }
     }
 }
