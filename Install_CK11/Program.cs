@@ -1050,6 +1050,7 @@ int timeout =10;
 
 
 /*
+1
  Справочные данный
 WinNT ADsPath   https://docs.microsoft.com/en-us/windows/win32/adsi/winnt-adspath 
 Пользователь  - админ  https://www.meziantou.net/check-if-the-current-user-is-an-administrator.htm#check-if-the-current 
