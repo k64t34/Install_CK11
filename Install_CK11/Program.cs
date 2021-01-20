@@ -447,7 +447,6 @@ namespace Install_CK11
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("Установка MemHeapSize {0} ", MemHeapSize);            
             string File_CK11_JSON = Path.Combine(Environment.GetEnvironmentVariable("ALLUSERSPROFILE") + @"\Monitel\CK-11", "PlatformSettings.json");
-
             int Timeout = 10;
             while (!(Timeout > 0 || !File.Exists(File_CK11_JSON)))
             {
@@ -462,6 +461,8 @@ namespace Install_CK11
             }
             else // JSON read/write interface https://www.newtonsoft.com/json/help/html/ReadingWritingJSON.htm
             {
+				1.Wait for text in logfile
+				
                 if (SetJSONParameterValue(File_CK11_JSON, "malMemHeapSize", MemHeapSize.ToString())) PrintOK();
                 else PrintWarn("Не удалось установить MemHeapSize в файл \"" + File_CK11_JSON + "\"\n" + __Error);
             }
